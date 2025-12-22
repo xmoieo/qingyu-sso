@@ -93,6 +93,13 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return errorResponse('密码长度不能少于6位');
     }
 
+    // 防止通过通用更新接口提升为管理员
+    if (role && role !== user.role) {
+      if (role === UserRole.ADMIN) {
+        return errorResponse('不能通过此接口创建或提升管理员，请使用专门的权限提升流程', 403);
+      }
+    }
+
     // 更新用户信息
     const updatedUser = await userService.update(id, {
       email,
