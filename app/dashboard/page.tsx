@@ -14,14 +14,7 @@ import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import SecurityIcon from '@mui/icons-material/Security';
 import { DashboardLayout } from '@/components/layout';
 import { UserRole } from '@/lib/types';
-
-interface User {
-  id: string;
-  username: string;
-  email: string;
-  nickname?: string;
-  role: UserRole;
-}
+import { useMe } from '@/lib/hooks';
 
 interface StatsData {
   totalUsers: number;
@@ -30,7 +23,7 @@ interface StatsData {
 }
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<User | null>(null);
+  const { user } = useMe({ revalidate: false });
   const [stats, setStats] = useState<StatsData>({
     totalUsers: 0,
     totalApplications: 0,
@@ -38,18 +31,6 @@ export default function DashboardPage() {
   });
 
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const response = await fetch('/api/auth/me');
-        const result = await response.json();
-        if (result.success) {
-          setUser(result.data);
-        }
-      } catch (error) {
-        console.error('获取用户信息失败:', error);
-      }
-    };
-
     const fetchStats = async () => {
       try {
         const response = await fetch('/api/stats');
@@ -62,7 +43,6 @@ export default function DashboardPage() {
       }
     };
 
-    fetchUser();
     fetchStats();
   }, []);
 
@@ -124,18 +104,20 @@ export default function DashboardPage() {
               <Grid xs={12} sm={6} md={4} key={card.title}>
                 <Card variant="outlined">
                   <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                    >
                       <Box>
                         <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
                           {card.title}
                         </Typography>
-                        <Typography level="h2">
-                          {card.value}
-                        </Typography>
+                        <Typography level="h2">{card.value}</Typography>
                       </Box>
-                      <Box sx={{ color: card.color }}>
-                        {card.icon}
-                      </Box>
+                      <Box sx={{ color: card.color }}>{card.icon}</Box>
                     </Box>
                   </CardContent>
                 </Card>

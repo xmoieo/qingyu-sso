@@ -31,6 +31,7 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { UserRole } from '@/lib/types';
 import { Loading } from '@/components/common';
+import { clearMeCache, useMe } from '@/lib/hooks';
 
 const DRAWER_WIDTH = 240;
 const DRAWER_WIDTH_COLLAPSED = 64;
@@ -38,15 +39,6 @@ const DRAWER_OPEN_STORAGE_KEY = 'sso.drawerOpen';
 
 const useIsomorphicLayoutEffect =
   typeof window !== 'undefined' ? useLayoutEffect : useEffect;
-
-interface User {
-  id: string;
-  username: string;
-  email: string;
-  nickname?: string;
-  avatar?: string;
-  role: UserRole;
-}
 
 interface MenuItemType {
   path: string;
@@ -92,16 +84,13 @@ interface DashboardLayoutProps {
   children: React.ReactNode;
 }
 
-let cachedUser: User | null = null;
-
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const [user, setUser] = useState<User | null>(cachedUser);
   const [drawerOpen, setDrawerOpen] = useState(true);
-  const [loading, setLoading] = useState(() => cachedUser === null);
   const [isMobile, setIsMobile] = useState(false);
+  const { user, loading } = useMe();
 
   // 检测移动端
   useEffect(() => {
@@ -124,45 +113,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   }, []);
 
-  // 获取用户信息（带轻量缓存，避免切页闪烁）
   useEffect(() => {
-    let cancelled = false;
-
-    const fetchUser = async () => {
-      try {
-        if (cachedUser) {
-          setUser(cachedUser);
-          setLoading(false);
-        } else {
-          setLoading(true);
-        }
-
-        const response = await fetch('/api/auth/me');
-        const result = await response.json();
-
-        if (cancelled) return;
-
-        if (result.success) {
-          cachedUser = result.data;
-          setUser(result.data);
-        } else {
-          cachedUser = null;
-          router.push('/login');
-        }
-      } catch {
-        if (!cachedUser) {
-          router.push('/login');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    fetchUser();
-    return () => {
-      cancelled = true;
-    };
-  }, [router]);
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [loading, router, user]);
 
   // 过滤用户可见的菜单项
   const visibleMenuItems = menuItems.filter(
@@ -173,7 +128,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
-      cachedUser = null;
+      clearMeCache();
       router.push('/login');
     } catch (error) {
       console.error('登出失败:', error);

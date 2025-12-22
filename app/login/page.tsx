@@ -19,6 +19,7 @@ import Stack from '@mui/joy/Stack';
 import PersonIcon from '@mui/icons-material/Person';
 import LockIcon from '@mui/icons-material/Lock';
 import WarningIcon from '@mui/icons-material/Warning';
+import { getMeCache } from '@/lib/hooks';
 
 function LoginForm() {
   const router = useRouter();
@@ -28,10 +29,16 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // 检查是否已登录
+  // 检查是否已登录（优先使用缓存，减少不必要请求）
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        const cached = getMeCache();
+        if (cached) {
+          const returnUrl = searchParams.get('returnUrl') || '/dashboard';
+          router.replace(returnUrl);
+          return;
+        }
         const response = await fetch('/api/auth/me');
         if (response.ok) {
           const returnUrl = searchParams.get('returnUrl') || '/dashboard';

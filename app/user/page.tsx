@@ -35,18 +35,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { DashboardLayout } from '@/components/layout';
 import { UserRole } from '@/lib/types';
-
-interface User {
-  id: string;
-  username: string;
-  email: string;
-  nickname?: string;
-  avatar?: string;
-  gender?: string;
-  birthday?: string;
-  role: UserRole;
-  createdAt: string;
-}
+import { useMe } from '@/lib/hooks';
 
 interface ConsentedApp {
   clientId: string;
@@ -67,8 +56,7 @@ interface AuthLog {
 }
 
 export default function UserProfilePage() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, loading, refresh } = useMe({ revalidate: false });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -101,27 +89,14 @@ export default function UserProfilePage() {
   const [logsLoading, setLogsLoading] = useState(false);
 
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const response = await fetch('/api/auth/me');
-        const result = await response.json();
-        if (result.success) {
-          setUser(result.data);
-          setProfileData({
-            nickname: result.data.nickname || '',
-            email: result.data.email,
-            gender: result.data.gender || '',
-            birthday: result.data.birthday || '',
-          });
-        }
-      } catch (error) {
-        console.error('获取用户信息失败:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchUser();
-  }, []);
+    if (!user) return;
+    setProfileData({
+      nickname: user.nickname || '',
+      email: user.email,
+      gender: user.gender || '',
+      birthday: user.birthday || '',
+    });
+  }, [user]);
 
   const fetchConsents = async () => {
     setConsentsLoading(true);
@@ -191,7 +166,13 @@ export default function UserProfilePage() {
 
       if (result.success) {
         setSuccess('个人信息更新成功');
-        setUser(result.data);
+        setProfileData({
+          nickname: result.data.nickname || '',
+          email: result.data.email,
+          gender: result.data.gender || '',
+          birthday: result.data.birthday || '',
+        });
+        refresh();
       } else {
         setError(result.error || '更新失败');
       }
