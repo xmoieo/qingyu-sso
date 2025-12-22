@@ -262,6 +262,23 @@ export default function UserProfilePage() {
     }
   };
 
+  const normalizeScopes = (scope: string) => {
+    const parts = scope
+      .split(/[\s,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const seen = new Set<string>();
+    const unique: string[] = [];
+    for (const s of parts) {
+      if (!seen.has(s)) {
+        seen.add(s);
+        unique.push(s);
+      }
+    }
+    return unique;
+  };
+
   const getActionLabel = (action: string) => {
     switch (action) {
       case 'consent': return '授权登录';
@@ -442,8 +459,10 @@ export default function UserProfilePage() {
                                 </td>
                                 <td>
                                   <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                                    {consent.scope.split(' ').map(s => (
-                                      <Chip key={s} size="sm" variant="soft">{s}</Chip>
+                                    {normalizeScopes(consent.scope).map((s) => (
+                                      <Chip key={s} size="sm" variant="soft">
+                                        {s}
+                                      </Chip>
                                     ))}
                                   </Stack>
                                 </td>
