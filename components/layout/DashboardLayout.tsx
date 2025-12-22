@@ -2,7 +2,7 @@
 /**
  * 仪表盘布局组件 - 包含抽屉菜单和标题栏
  */
-import { useState, useEffect } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Box from '@mui/joy/Box';
 import Sheet from '@mui/joy/Sheet';
@@ -30,9 +30,14 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { UserRole } from '@/lib/types';
+import { Loading } from '@/components/common';
 
 const DRAWER_WIDTH = 240;
 const DRAWER_WIDTH_COLLAPSED = 64;
+const DRAWER_OPEN_STORAGE_KEY = 'sso.drawerOpen';
+
+const useIsomorphicLayoutEffect =
+  typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 interface User {
   id: string;
@@ -87,13 +92,15 @@ interface DashboardLayoutProps {
   children: React.ReactNode;
 }
 
+let cachedUser: User | null = null;
+
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
-  
-  const [user, setUser] = useState<User | null>(null);
+
+  const [user, setUser] = useState<User | null>(cachedUser);
   const [drawerOpen, setDrawerOpen] = useState(true);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => cachedUser === null);
   const [isMobile, setIsMobile] = useState(false);
 
   // 检测移动端
@@ -106,24 +113,55 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // 获取用户信息
+  // 读取抽屉折叠状态（避免切页后重置）
+  useIsomorphicLayoutEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(DRAWER_OPEN_STORAGE_KEY);
+      if (saved === 'true') setDrawerOpen(true);
+      if (saved === 'false') setDrawerOpen(false);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // 获取用户信息（带轻量缓存，避免切页闪烁）
   useEffect(() => {
+    let cancelled = false;
+
     const fetchUser = async () => {
       try {
+        if (cachedUser) {
+          setUser(cachedUser);
+          setLoading(false);
+        } else {
+          setLoading(true);
+        }
+
         const response = await fetch('/api/auth/me');
         const result = await response.json();
+
+        if (cancelled) return;
+
         if (result.success) {
+          cachedUser = result.data;
           setUser(result.data);
         } else {
+          cachedUser = null;
           router.push('/login');
         }
       } catch {
-        router.push('/login');
+        if (!cachedUser) {
+          router.push('/login');
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
+
     fetchUser();
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   // 过滤用户可见的菜单项
@@ -135,6 +173,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
+      cachedUser = null;
       router.push('/login');
     } catch (error) {
       console.error('登出失败:', error);
@@ -146,6 +185,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     router.push(path);
   };
 
+  const handleToggleDrawer = () => {
+    setDrawerOpen((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(DRAWER_OPEN_STORAGE_KEY, String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
   // 获取当前底部导航索引
   const getBottomNavValue = () => {
     const index = visibleMenuItems.findIndex((item) => item.path === pathname);
@@ -153,18 +204,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   if (loading) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '100vh',
-        }}
-      >
-        <Typography>加载中...</Typography>
-      </Box>
-    );
+    return <Loading fullScreen />;
   }
 
   if (!user) {
@@ -182,7 +222,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     >
       {visibleMenuItems.map((item) => (
         <ListItem key={item.path}>
-          <Tooltip title={!drawerOpen && !isMobile ? item.label : ''} placement="right">
+          <Tooltip
+            title={!drawerOpen && !isMobile ? item.label : ''}
+            placement="right"
+          >
             <ListItemButton
               selected={pathname === item.path}
               onClick={() => handleNavigate(item.path)}
@@ -234,7 +277,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <IconButton
             variant="outlined"
             color="neutral"
-            onClick={() => setDrawerOpen(!drawerOpen)}
+            onClick={handleToggleDrawer}
           >
             {drawerOpen ? <ChevronLeftIcon /> : <MenuIcon />}
           </IconButton>
@@ -249,22 +292,19 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             slots={{ root: IconButton }}
             slotProps={{ root: { variant: 'plain', color: 'neutral' } }}
           >
-            {user.avatar ? (
-              <Avatar src={user.avatar} size="sm" />
-            ) : (
-              <AccountCircleIcon />
-            )}
+            {user.avatar ? <Avatar src={user.avatar} size="sm" /> : <AccountCircleIcon />}
           </MenuButton>
           <Menu placement="bottom-end">
             <MenuItem disabled>
-              <Typography level="body-sm">
-                {user.nickname || user.username}
-              </Typography>
+              <Typography level="body-sm">{user.nickname || user.username}</Typography>
             </MenuItem>
             <MenuItem disabled>
               <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-                {user.role === UserRole.ADMIN ? '管理员' : 
-                 user.role === UserRole.DEVELOPER ? '开发者' : '普通用户'}
+                {user.role === UserRole.ADMIN
+                  ? '管理员'
+                  : user.role === UserRole.DEVELOPER
+                    ? '开发者'
+                    : '普通用户'}
               </Typography>
             </MenuItem>
             <Divider />
@@ -305,7 +345,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           flexGrow: 1,
           p: { xs: 2, sm: 3 },
           mt: '64px',
-          ml: isMobile ? 0 : drawerOpen ? `${DRAWER_WIDTH}px` : `${DRAWER_WIDTH_COLLAPSED}px`,
+          ml: isMobile
+            ? 0
+            : drawerOpen
+              ? `${DRAWER_WIDTH}px`
+              : `${DRAWER_WIDTH_COLLAPSED}px`,
           pb: isMobile ? 'calc(64px + env(safe-area-inset-bottom) + 16px)' : 3,
           transition: 'margin-left 0.2s',
           overflow: 'auto',
@@ -351,9 +395,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               }}
             >
               {item.icon}
-              <Typography 
-                level="body-xs" 
-                sx={{ 
+              <Typography
+                level="body-xs"
+                sx={{
                   fontSize: '10px',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
