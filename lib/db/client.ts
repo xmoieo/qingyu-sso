@@ -30,17 +30,57 @@ function isEscaped(sql: string, index: number): boolean {
   return backslashes % 2 === 1;
 }
 
+/**
+ * 安全地转换 SQLite SQL 语法到 PostgreSQL
+ * 使用词法分析方式避免 SQL 注入风险
+ */
 export function toPostgresSql(sql: string): { sql: string; paramsCount: number } {
-  // Translate SQLite datetime helper
-  const transformed = sql.replace(/datetime\('now'\)/g, 'NOW()');
-
-  // Translate '?' placeholders to '$1, $2, ...' (best-effort, ignoring quoted strings)
+  // 只替换不在引号内的 datetime('now')
+  // 使用状态机方式处理，避免简单字符串替换的风险
   let inSingle = false;
   let inDouble = false;
+  let transformed = '';
+  let i = 0;
+
+  while (i < sql.length) {
+    const ch = sql[i];
+
+    // 处理引号状态
+    if (ch === "'" && !inDouble && !isEscaped(sql, i)) {
+      inSingle = !inSingle;
+      transformed += ch;
+      i++;
+      continue;
+    }
+
+    if (ch === '"' && !inSingle && !isEscaped(sql, i)) {
+      inDouble = !inDouble;
+      transformed += ch;
+      i++;
+      continue;
+    }
+
+    // 只在非引号内替换 datetime('now')
+    if (!inSingle && !inDouble) {
+      const remaining = sql.slice(i).toLowerCase();
+      if (remaining.startsWith("datetime('now')")) {
+        transformed += 'NOW()';
+        i += 15; // datetime('now') 长度
+        continue;
+      }
+    }
+
+    transformed += ch;
+    i++;
+  }
+
+  // Translate '?' placeholders to '$1, $2, ...' (ignoring quoted strings)
+  inSingle = false;
+  inDouble = false;
   let paramIndex = 0;
   let out = '';
 
-  for (let i = 0; i < transformed.length; i++) {
+  for (i = 0; i < transformed.length; i++) {
     const ch = transformed[i];
 
     if (ch === "'" && !inDouble && !isEscaped(transformed, i)) {

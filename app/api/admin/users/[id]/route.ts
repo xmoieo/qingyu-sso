@@ -16,6 +16,7 @@ import {
   forbiddenResponse,
   notFoundResponse,
   serverErrorResponse,
+  validatePasswordComplexity,
 } from '@/lib/utils';
 
 interface RouteParams {
@@ -88,16 +89,18 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // 密码长度验证
-    if (password && password.length < 6) {
-      return errorResponse('密码长度不能少于6位');
+    // 密码复杂度验证
+    if (password) {
+      const passwordError = validatePasswordComplexity(password);
+      if (passwordError) {
+        return errorResponse(passwordError);
+      }
     }
 
-    // 防止通过通用更新接口提升为管理员
+    // 严格禁止通过此接口修改用户角色（防止权限提升攻击）
+    // 任何角色变更都必须通过专门的权限管理流程
     if (role && role !== user.role) {
-      if (role === UserRole.ADMIN) {
-        return errorResponse('不能通过此接口创建或提升管理员，请使用专门的权限提升流程', 403);
-      }
+      return errorResponse('不能通过此接口修改用户角色，请使用专门的权限管理流程', 403);
     }
 
     // 更新用户信息

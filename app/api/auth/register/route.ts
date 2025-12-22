@@ -4,7 +4,7 @@
  */
 import { NextRequest } from 'next/server';
 import { userService, settingsService } from '@/lib/services';
-import { successResponse, errorResponse, serverErrorResponse, buildRateLimitKey, checkRateLimit } from '@/lib/utils';
+import { successResponse, errorResponse, serverErrorResponse, buildRateLimitKey, checkRateLimit, validatePasswordComplexity } from '@/lib/utils';
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,9 +40,10 @@ export async function POST(request: NextRequest) {
       return errorResponse('邮箱格式不正确');
     }
 
-    // 密码长度验证
-    if (password.length < 6) {
-      return errorResponse('密码长度不能少于6位');
+    // 密码复杂度验证
+    const passwordError = validatePasswordComplexity(password);
+    if (passwordError) {
+      return errorResponse(passwordError);
     }
 
     // 检查用户名是否已存在

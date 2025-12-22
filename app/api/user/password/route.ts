@@ -4,7 +4,7 @@
  */
 import { NextRequest } from 'next/server';
 import { userService } from '@/lib/services';
-import { getAuthContext, successResponse, errorResponse, unauthorizedResponse, serverErrorResponse } from '@/lib/utils';
+import { getAuthContext, successResponse, errorResponse, unauthorizedResponse, serverErrorResponse, validatePasswordComplexity } from '@/lib/utils';
 
 export async function PUT(request: NextRequest) {
   try {
@@ -22,8 +22,10 @@ export async function PUT(request: NextRequest) {
       return errorResponse('当前密码和新密码为必填项');
     }
 
-    if (newPassword.length < 6) {
-      return errorResponse('新密码长度不能少于6位');
+    // 密码复杂度验证
+    const passwordError = validatePasswordComplexity(newPassword);
+    if (passwordError) {
+      return errorResponse(passwordError);
     }
 
     // 验证当前密码

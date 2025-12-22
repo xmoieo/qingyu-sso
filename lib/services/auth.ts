@@ -56,7 +56,11 @@ export const authService = {
       return null;
     }
 
-    // 创建会话
+    // 【安全修复】登录成功后删除该用户所有旧会话，防止会话固定攻击
+    // 这确保攻击者无法利用预先设置的会话
+    await this.deleteUserSessions(user.id);
+
+    // 创建新会话（新的会话ID）
     const session = await this.createSession(user.id);
 
     // 生成JWT
