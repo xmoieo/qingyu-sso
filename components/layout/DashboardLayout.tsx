@@ -268,12 +268,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </Typography>
             </MenuItem>
             <Divider />
-            <MenuItem onClick={() => handleNavigate('/user')}>
-              <ListItemDecorator>
-                <PersonIcon />
-              </ListItemDecorator>
-              个人信息
-            </MenuItem>
             <MenuItem onClick={handleLogout} color="danger">
               <ListItemDecorator>
                 <LogoutIcon />
