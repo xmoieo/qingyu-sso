@@ -312,7 +312,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           p: { xs: 2, sm: 3 },
           mt: '64px',
           ml: isMobile ? 0 : drawerOpen ? `${DRAWER_WIDTH}px` : `${DRAWER_WIDTH_COLLAPSED}px`,
-          pb: isMobile ? '80px' : 3,
+          pb: isMobile ? 'calc(64px + env(safe-area-inset-bottom) + 16px)' : 3,
           transition: 'margin-left 0.2s',
           overflow: 'auto',
         }}
@@ -328,7 +328,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             bottom: 0,
             left: 0,
             right: 0,
-            height: 64,
+            height: 'calc(64px + env(safe-area-inset-bottom))',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-around',
@@ -337,6 +337,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             bgcolor: 'background.surface',
             zIndex: 1100,
             px: 1,
+            pb: 'env(safe-area-inset-bottom)',
           }}
         >
           {visibleMenuItems.slice(0, 5).map((item, index) => (
