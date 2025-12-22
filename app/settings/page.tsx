@@ -10,6 +10,8 @@ import Button from '@mui/joy/Button';
 import Typography from '@mui/joy/Typography';
 import Alert from '@mui/joy/Alert';
 import CircularProgress from '@mui/joy/CircularProgress';
+import Input from '@mui/joy/Input';
+import Textarea from '@mui/joy/Textarea';
 import Switch from '@mui/joy/Switch';
 import FormControl from '@mui/joy/FormControl';
 import FormLabel from '@mui/joy/FormLabel';
@@ -26,6 +28,8 @@ import { DashboardLayout } from '@/components/layout';
 interface SystemSettings {
   allowRegistration: boolean;
   avatarProvider: 'gravatar' | 'cravatar';
+  logoUrl: string;
+  copyrightHtml: string;
 }
 
 export default function SettingsPage() {
@@ -152,6 +156,39 @@ export default function SettingsPage() {
                 保存设置
               </Button>
             </Box>
+
+            <Divider sx={{ my: 3 }} />
+
+            <Typography level="title-lg" sx={{ mb: 2 }}>品牌展示</Typography>
+
+            <FormControl sx={{ mb: 2 }}>
+              <FormLabel>Logo URL</FormLabel>
+              <Input
+                value={settings?.logoUrl ?? ''}
+                onChange={(e) =>
+                  setSettings((prev) =>
+                    prev ? { ...prev, logoUrl: e.target.value } : null
+                  )
+                }
+                placeholder="https://example.com/logo.png"
+              />
+              <FormHelperText>登录/注册页面顶部显示（留空则使用默认图标）</FormHelperText>
+            </FormControl>
+
+            <FormControl>
+              <FormLabel>版权信息（支持 HTML）</FormLabel>
+              <Textarea
+                minRows={3}
+                value={settings?.copyrightHtml ?? ''}
+                onChange={(e) =>
+                  setSettings((prev) =>
+                    prev ? { ...prev, copyrightHtml: e.target.value } : null
+                  )
+                }
+                placeholder="例如：© 2025 <a href='https://example.com'>Your Company</a>"
+              />
+              <FormHelperText>将显示在登录/注册页面底部</FormHelperText>
+            </FormControl>
           </CardContent>
         </Card>
       </Box>

@@ -20,14 +20,37 @@ import PersonIcon from '@mui/icons-material/Person';
 import LockIcon from '@mui/icons-material/Lock';
 import WarningIcon from '@mui/icons-material/Warning';
 import { getMeCache } from '@/lib/hooks';
+import parse from 'html-react-parser';
+
+interface PublicSettings {
+  logoUrl: string;
+  copyrightHtml: string;
+}
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [publicSettings, setPublicSettings] = useState<PublicSettings | null>(null);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchPublicSettings = async () => {
+      try {
+        const response = await fetch('/api/public/settings');
+        const result = await response.json();
+        if (result?.success) {
+          setPublicSettings(result.data);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    fetchPublicSettings();
+  }, []);
 
   // 检查是否已登录（优先使用缓存，减少不必要请求）
   useEffect(() => {
@@ -92,19 +115,28 @@ function LoginForm() {
       <Card variant="outlined" sx={{ width: '100%', maxWidth: 400 }}>
         <CardContent sx={{ p: 4 }}>
           <Stack alignItems="center" spacing={1} sx={{ mb: 4 }}>
-            <Box
-              sx={{
-                width: 48,
-                height: 48,
-                borderRadius: '50%',
-                bgcolor: 'primary.softBg',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <LockIcon sx={{ color: 'primary.500' }} />
-            </Box>
+            {publicSettings?.logoUrl ? (
+              <Box
+                component="img"
+                src={publicSettings.logoUrl}
+                alt="logo"
+                sx={{ width: 48, height: 48, objectFit: 'contain' }}
+              />
+            ) : (
+              <Box
+                sx={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: '50%',
+                  bgcolor: 'primary.softBg',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <LockIcon sx={{ color: 'primary.500' }} />
+              </Box>
+            )}
             <Typography level="h3">统一认证平台</Typography>
             <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
               请使用您的账户登录
@@ -161,6 +193,16 @@ function LoginForm() {
               </Typography>
             </Link>
           </Typography>
+
+          {publicSettings?.copyrightHtml ? (
+            <Typography
+              level="body-xs"
+              sx={{ mt: 2, textAlign: 'center', color: 'text.tertiary' }}
+              component="div"
+            >
+              {parse(publicSettings.copyrightHtml)}
+            </Typography>
+          ) : null}
         </CardContent>
       </Card>
     </Box>

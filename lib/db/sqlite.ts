@@ -92,7 +92,9 @@ function initTables(db: Database.Database): void {
   db.exec(`
     INSERT OR IGNORE INTO system_settings (key, value) VALUES 
     ('allow_registration', 'true'),
-    ('avatar_provider', 'gravatar')
+    ('avatar_provider', 'gravatar'),
+    ('logo_url', ''),
+    ('copyright_html', '')
   `);
 
   // 用户表

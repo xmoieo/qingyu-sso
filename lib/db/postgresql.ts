@@ -43,7 +43,10 @@ async function initTables(pg: Pool): Promise<void> {
 
   await pg.query(`
     INSERT INTO system_settings (key, value)
-    VALUES ('allow_registration', 'true'), ('avatar_provider', 'gravatar')
+    VALUES ('allow_registration', 'true'),
+      ('avatar_provider', 'gravatar'),
+      ('logo_url', ''),
+      ('copyright_html', '')
     ON CONFLICT (key) DO NOTHING
   `);
 

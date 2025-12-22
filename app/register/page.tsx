@@ -2,7 +2,7 @@
 /**
  * 注册页面
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Box from '@mui/joy/Box';
@@ -25,9 +25,16 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import WarningIcon from '@mui/icons-material/Warning';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import parse from 'html-react-parser';
+
+interface PublicSettings {
+  logoUrl: string;
+  copyrightHtml: string;
+}
 
 export default function RegisterPage() {
   const router = useRouter();
+  const [publicSettings, setPublicSettings] = useState<PublicSettings | null>(null);
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -38,6 +45,22 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // 获取公开设置（logo/版权）
+  useEffect(() => {
+    const fetchPublicSettings = async () => {
+      try {
+        const response = await fetch('/api/public/settings');
+        const result = await response.json();
+        if (result?.success) {
+          setPublicSettings(result.data);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    fetchPublicSettings();
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -105,19 +128,28 @@ export default function RegisterPage() {
       <Card variant="outlined" sx={{ width: '100%', maxWidth: 400 }}>
         <CardContent sx={{ p: 4 }}>
           <Stack alignItems="center" spacing={1} sx={{ mb: 4 }}>
-            <Box
-              sx={{
-                width: 48,
-                height: 48,
-                borderRadius: '50%',
-                bgcolor: 'primary.softBg',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <PersonAddIcon sx={{ color: 'primary.500' }} />
-            </Box>
+            {publicSettings?.logoUrl ? (
+              <Box
+                component="img"
+                src={publicSettings.logoUrl}
+                alt="logo"
+                sx={{ width: 48, height: 48, objectFit: 'contain' }}
+              />
+            ) : (
+              <Box
+                sx={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: '50%',
+                  bgcolor: 'primary.softBg',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <PersonAddIcon sx={{ color: 'primary.500' }} />
+              </Box>
+            )}
             <Typography level="h3">统一认证平台</Typography>
             <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
               创建您的账户
@@ -221,6 +253,16 @@ export default function RegisterPage() {
               </Typography>
             </Link>
           </Typography>
+
+          {publicSettings?.copyrightHtml ? (
+            <Typography
+              level="body-xs"
+              sx={{ mt: 2, textAlign: 'center', color: 'text.tertiary' }}
+              component="div"
+            >
+              {parse(publicSettings.copyrightHtml)}
+            </Typography>
+          ) : null}
         </CardContent>
       </Card>
     </Box>

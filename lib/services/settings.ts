@@ -6,6 +6,8 @@ import { getDatabase } from '../db';
 export interface SystemSettings {
   allowRegistration: boolean;
   avatarProvider: 'gravatar' | 'cravatar';
+  logoUrl: string;
+  copyrightHtml: string;
 }
 
 export const settingsService = {
@@ -34,6 +36,8 @@ export const settingsService = {
     return {
       allowRegistration: (await this.get('allow_registration')) !== 'false',
       avatarProvider: ((await this.get('avatar_provider')) as 'gravatar' | 'cravatar') || 'gravatar',
+      logoUrl: (await this.get('logo_url')) ?? '',
+      copyrightHtml: (await this.get('copyright_html')) ?? '',
     };
   },
 
@@ -44,6 +48,12 @@ export const settingsService = {
     }
     if (settings.avatarProvider !== undefined) {
       await this.set('avatar_provider', settings.avatarProvider);
+    }
+    if (settings.logoUrl !== undefined) {
+      await this.set('logo_url', settings.logoUrl);
+    }
+    if (settings.copyrightHtml !== undefined) {
+      await this.set('copyright_html', settings.copyrightHtml);
     }
   },
 

@@ -42,11 +42,13 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { allowRegistration, avatarProvider } = body;
+    const { allowRegistration, avatarProvider, logoUrl, copyrightHtml } = body;
 
     await settingsService.updateAll({
       allowRegistration,
       avatarProvider,
+      logoUrl,
+      copyrightHtml,
     });
 
     const settings = await settingsService.getAll();
