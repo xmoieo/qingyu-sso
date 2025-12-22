@@ -6,13 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "start:prod": "next build && next start"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.3.6",
     "@mui/joy": "^5.0.0-beta.52",
+    "@mui/material": "^7.3.6",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.5.0",
     "jose": "^6.1.3",
