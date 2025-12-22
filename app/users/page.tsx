@@ -215,7 +215,7 @@ export default function UsersPage() {
 
   return (
     <DashboardLayout>
-      <Box>
+      <Box paddingBottom={10}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Typography level="h2">用户管理</Typography>
           <Button

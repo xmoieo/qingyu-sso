@@ -109,7 +109,7 @@ export default function DashboardPage() {
 
   return (
     <DashboardLayout>
-      <Box>
+      <Box paddingBottom={10}>
         <Typography level="h2" sx={{ mb: 1 }}>
           仪表盘
         </Typography>

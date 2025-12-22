@@ -96,7 +96,7 @@ export default function SettingsPage() {
 
   return (
     <DashboardLayout>
-      <Box>
+      <Box paddingBottom={10}>
         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 3 }}>
           <SettingsIcon />
           <Typography level="h2">系统设置</Typography>

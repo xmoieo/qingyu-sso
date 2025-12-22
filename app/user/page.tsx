@@ -300,7 +300,7 @@ export default function UserProfilePage() {
 
   return (
     <DashboardLayout>
-      <Box>
+      <Box paddingBottom={10}>
         <Typography level="h2" sx={{ mb: 3 }}>个人中心</Typography>
 
         <Grid container spacing={3}>
