@@ -6,7 +6,7 @@ import crypto from 'crypto';
 import { JWTPayload } from 'jose';
 import { getDatabase } from '../db';
 import { signJWT } from '../keys';
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+const APP_URL = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 // 授权码有效期（10分钟）
 const AUTH_CODE_EXPIRES_IN = 10 * 60 * 1000;

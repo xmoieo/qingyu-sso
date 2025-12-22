@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { applicationService, oauthService } from '@/lib/services';
 import { getAuthContext } from '@/lib/utils';
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+const APP_URL = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
