@@ -137,7 +137,7 @@ function LoginForm() {
                 <LockIcon sx={{ color: 'primary.500' }} />
               </Box>
             )}
-            <Typography level="h3">统一认证平台</Typography>
+            <Typography level="h3">统一身份认证平台</Typography>
             <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
               请使用您的账户登录
             </Typography>

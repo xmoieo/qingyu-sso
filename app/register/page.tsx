@@ -150,7 +150,7 @@ export default function RegisterPage() {
                 <PersonAddIcon sx={{ color: 'primary.500' }} />
               </Box>
             )}
-            <Typography level="h3">统一认证平台</Typography>
+            <Typography level="h3">统一身份认证平台</Typography>
             <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
               创建您的账户
             </Typography>
