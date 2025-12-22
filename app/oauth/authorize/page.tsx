@@ -2,7 +2,7 @@
 /**
  * OAuth授权同意页面
  */
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Box from '@mui/joy/Box';
 import Card from '@mui/joy/Card';
@@ -62,7 +62,23 @@ const scopeInfoMap: Record<string, Omit<ScopeInfo, 'scope'>> = {
   },
 };
 
-export default function AuthorizePage() {
+function AuthorizeLoading() {
+  return (
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        bgcolor: 'background.surface',
+      }}
+    >
+      <CircularProgress />
+    </Box>
+  );
+}
+
+function AuthorizeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -290,5 +306,13 @@ export default function AuthorizePage() {
         </CardContent>
       </Card>
     </Box>
+  );
+}
+
+export default function AuthorizePage() {
+  return (
+    <Suspense fallback={<AuthorizeLoading />}>
+      <AuthorizeContent />
+    </Suspense>
   );
 }
