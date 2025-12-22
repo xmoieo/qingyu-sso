@@ -13,29 +13,19 @@ function isRedirectUriAllowed(redirectUri: string, allowedUris: string[]): boole
   try {
     const redirectUrl = new URL(redirectUri);
     const redirectBase = `${redirectUrl.origin}${redirectUrl.pathname}`;
-    
-    for (const allowed of allowedUris) {
+
+    return allowedUris.some((allowed) => {
       try {
         const allowedUrl = new URL(allowed);
         const allowedBase = `${allowedUrl.origin}${allowedUrl.pathname}`;
-        
-        // 精确匹配基础路径（忽略查询参数和 hash）
-        if (redirectBase === allowedBase) {
-          return true;
-        }
+        return redirectBase === allowedBase;
       } catch {
-        // 如果配置的不是完整 URL，尝试前缀匹配
-        if (redirectUri.startsWith(allowed)) {
-          return true;
-        }
+        return false;
       }
-    }
+    });
   } catch {
-    // 如果无法解析为 URL，尝试直接匹配
-    return allowedUris.includes(redirectUri);
+    return false;
   }
-  
-  return false;
 }
 
 export async function GET(request: NextRequest) {
