@@ -8,6 +8,36 @@ import { getAuthContext } from '@/lib/utils';
 
 const APP_URL = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
+// 验证 redirect_uri 是否匹配允许列表（支持查询参数差异）
+function isRedirectUriAllowed(redirectUri: string, allowedUris: string[]): boolean {
+  try {
+    const redirectUrl = new URL(redirectUri);
+    const redirectBase = `${redirectUrl.origin}${redirectUrl.pathname}`;
+    
+    for (const allowed of allowedUris) {
+      try {
+        const allowedUrl = new URL(allowed);
+        const allowedBase = `${allowedUrl.origin}${allowedUrl.pathname}`;
+        
+        // 精确匹配基础路径（忽略查询参数和 hash）
+        if (redirectBase === allowedBase) {
+          return true;
+        }
+      } catch {
+        // 如果配置的不是完整 URL，尝试前缀匹配
+        if (redirectUri.startsWith(allowed)) {
+          return true;
+        }
+      }
+    }
+  } catch {
+    // 如果无法解析为 URL，尝试直接匹配
+    return allowedUris.includes(redirectUri);
+  }
+  
+  return false;
+}
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
 
@@ -42,7 +72,7 @@ export async function GET(request: NextRequest) {
 
   // 验证重定向URI
   const allowedUris = JSON.parse(app.redirectUris) as string[];
-  if (!allowedUris.includes(redirectUri)) {
+  if (!isRedirectUriAllowed(redirectUri, allowedUris)) {
     return createErrorResponse(null, 'invalid_request', 'Invalid redirect_uri', state);
   }
 
