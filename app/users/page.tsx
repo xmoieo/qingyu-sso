@@ -367,7 +367,7 @@ export default function UsersPage() {
           <DialogTitle>确认删除</DialogTitle>
           <DialogContent>
             <Typography>
-              确定要删除用户 "{userToDelete?.username}" 吗？此操作不可撤销。
+              确定要删除用户 “{userToDelete?.username}” 吗？此操作不可撤销。
             </Typography>
           </DialogContent>
           <DialogActions>

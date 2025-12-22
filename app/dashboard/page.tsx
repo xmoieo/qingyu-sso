@@ -155,7 +155,7 @@ export default function DashboardPage() {
                 <Box>
                   <Typography variant="h6">安全提示</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    您可以在"个人信息"页面管理您的账户信息和密码。
+                    您可以在“个人信息”页面管理您的账户信息和密码。
                     当第三方应用请求访问您的账户时，请仔细核实应用信息后再授权。
                   </Typography>
                 </Box>

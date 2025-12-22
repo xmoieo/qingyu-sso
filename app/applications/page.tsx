@@ -288,7 +288,7 @@ export default function ApplicationsPage() {
           <Card>
             <CardContent sx={{ textAlign: 'center', py: 6 }}>
               <Typography color="text.secondary">
-                暂无应用，点击"创建应用"按钮添加您的第一个应用
+                暂无应用，点击“创建应用”按钮添加您的第一个应用
               </Typography>
             </CardContent>
           </Card>
@@ -461,7 +461,7 @@ export default function ApplicationsPage() {
           <DialogTitle>确认删除</DialogTitle>
           <DialogContent>
             <Typography>
-              确定要删除应用 "{appToDelete?.name}" 吗？此操作不可撤销，所有相关的授权令牌都将失效。
+              确定要删除应用 “{appToDelete?.name}” 吗？此操作不可撤销，所有相关的授权令牌都将失效。
             </Typography>
           </DialogContent>
           <DialogActions>
