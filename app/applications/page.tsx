@@ -476,7 +476,14 @@ export default function ApplicationsPage() {
                       </Typography>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                         {JSON.parse(app.redirectUris).map((uri: string, index: number) => (
-                          <Chip key={index} size="sm" variant="outlined">{uri}</Chip>
+                          <Chip
+                            key={index}
+                            size="sm"
+                            variant="outlined"
+                            sx={{ maxWidth: '100%', whiteSpace: 'normal', wordBreak: 'break-all' }}
+                          >
+                            {uri}
+                          </Chip>
                         ))}
                       </Box>
                     </Box>
