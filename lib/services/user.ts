@@ -4,6 +4,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcryptjs';
 import { getDatabase, User, UserRole } from '../db';
+import { numberFromCount, toIsoString } from '../db/client';
 
 interface CreateUserParams {
   username: string;
@@ -37,37 +38,38 @@ function rowToUser(row: Record<string, unknown>): User {
     gender: row.gender as string | undefined,
     birthday: row.birthday as string | undefined,
     role: row.role as UserRole,
-    createdAt: row.created_at as string,
-    updatedAt: row.updated_at as string,
+    createdAt: toIsoString(row.created_at),
+    updatedAt: toIsoString(row.updated_at),
   };
 }
 
 export const userService = {
   // 创建用户
   async create(params: CreateUserParams): Promise<User> {
-    const db = getDatabase();
+    const db = await getDatabase();
     const id = uuidv4();
     const hashedPassword = await bcrypt.hash(params.password, 10);
 
     // 检查是否是第一个用户，如果是则设为管理员
-    const countStmt = db.prepare('SELECT COUNT(*) as count FROM users');
-    const countResult = countStmt.get() as { count: number };
-    const role = countResult.count === 0 ? UserRole.ADMIN : (params.role || UserRole.USER);
+    const countRow = await db.queryOne<{ count: unknown }>('SELECT COUNT(*) as count FROM users');
+    const count = numberFromCount(countRow?.count ?? 0);
+    const role = count === 0 ? UserRole.ADMIN : (params.role || UserRole.USER);
 
-    const stmt = db.prepare(`
+    await db.execute(
+      `
       INSERT INTO users (id, username, email, password, nickname, gender, birthday, role)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
-      id,
-      params.username,
-      params.email,
-      hashedPassword,
-      params.nickname || null,
-      params.gender || null,
-      params.birthday || null,
-      role
+    `,
+      [
+        id,
+        params.username,
+        params.email,
+        hashedPassword,
+        params.nickname || null,
+        params.gender || null,
+        params.birthday || null,
+        role,
+      ]
     );
 
     return this.findById(id) as Promise<User>;
@@ -75,25 +77,22 @@ export const userService = {
 
   // 根据ID查找用户
   async findById(id: string): Promise<User | null> {
-    const db = getDatabase();
-    const stmt = db.prepare('SELECT * FROM users WHERE id = ?');
-    const row = stmt.get(id) as Record<string, unknown> | undefined;
+    const db = await getDatabase();
+    const row = await db.queryOne<Record<string, unknown>>('SELECT * FROM users WHERE id = ?', [id]);
     return row ? rowToUser(row) : null;
   },
 
   // 根据用户名查找用户
   async findByUsername(username: string): Promise<User | null> {
-    const db = getDatabase();
-    const stmt = db.prepare('SELECT * FROM users WHERE username = ?');
-    const row = stmt.get(username) as Record<string, unknown> | undefined;
+    const db = await getDatabase();
+    const row = await db.queryOne<Record<string, unknown>>('SELECT * FROM users WHERE username = ?', [username]);
     return row ? rowToUser(row) : null;
   },
 
   // 根据邮箱查找用户
   async findByEmail(email: string): Promise<User | null> {
-    const db = getDatabase();
-    const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
-    const row = stmt.get(email) as Record<string, unknown> | undefined;
+    const db = await getDatabase();
+    const row = await db.queryOne<Record<string, unknown>>('SELECT * FROM users WHERE email = ?', [email]);
     return row ? rowToUser(row) : null;
   },
 
@@ -104,7 +103,7 @@ export const userService = {
 
   // 更新用户信息
   async update(id: string, params: UpdateUserParams): Promise<User | null> {
-    const db = getDatabase();
+    const db = await getDatabase();
     const updates: string[] = [];
     const values: unknown[] = [];
 
@@ -144,42 +143,44 @@ export const userService = {
     updates.push("updated_at = datetime('now')");
     values.push(id);
 
-    const stmt = db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`);
-    stmt.run(...values);
+    await db.execute(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, values);
 
     return this.findById(id);
   },
 
   // 删除用户
   async delete(id: string): Promise<boolean> {
-    const db = getDatabase();
-    const stmt = db.prepare('DELETE FROM users WHERE id = ?');
-    const result = stmt.run(id);
-    return result.changes > 0;
+    const db = await getDatabase();
+    const changes = await db.execute('DELETE FROM users WHERE id = ?', [id]);
+    return changes > 0;
   },
 
   // 获取所有用户
   async findAll(page = 1, limit = 20): Promise<{ users: User[]; total: number }> {
-    const db = getDatabase();
+    const db = await getDatabase();
     const offset = (page - 1) * limit;
 
-    const countStmt = db.prepare('SELECT COUNT(*) as count FROM users');
-    const countResult = countStmt.get() as { count: number };
+    const countRow = await db.queryOne<{ count: unknown }>('SELECT COUNT(*) as count FROM users');
+    const total = numberFromCount(countRow?.count ?? 0);
 
-    const stmt = db.prepare('SELECT * FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?');
-    const rows = stmt.all(limit, offset) as Record<string, unknown>[];
+    const rows = (await db.query<Record<string, unknown>>(
+      'SELECT * FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?',
+      [limit, offset]
+    )).rows;
 
     return {
       users: rows.map(rowToUser),
-      total: countResult.count,
+      total,
     };
   },
 
   // 根据角色获取用户
   async findByRole(role: UserRole): Promise<User[]> {
-    const db = getDatabase();
-    const stmt = db.prepare('SELECT * FROM users WHERE role = ? ORDER BY created_at DESC');
-    const rows = stmt.all(role) as Record<string, unknown>[];
+    const db = await getDatabase();
+    const rows = (await db.query<Record<string, unknown>>(
+      'SELECT * FROM users WHERE role = ? ORDER BY created_at DESC',
+      [role]
+    )).rows;
     return rows.map(rowToUser);
   },
 };

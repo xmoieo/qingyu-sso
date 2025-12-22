@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import jwt, { Secret, SignOptions } from 'jsonwebtoken';
 import { getDatabase, User, Session } from '../db';
 import { userService } from './user';
+import { toIsoString } from '../db/client';
 
 const JWT_SECRET: Secret = process.env.JWT_SECRET || 'default-secret-change-in-production';
 const JWT_EXPIRES_IN: SignOptions['expiresIn'] = (process.env.JWT_EXPIRES_IN || '7d') as SignOptions['expiresIn'];
@@ -28,8 +29,8 @@ function rowToSession(row: Record<string, unknown>): Session {
     id: row.id as string,
     userId: row.user_id as string,
     token: row.token as string,
-    expiresAt: row.expires_at as string,
-    createdAt: row.created_at as string,
+    expiresAt: toIsoString(row.expires_at),
+    createdAt: toIsoString(row.created_at),
   };
 }
 
@@ -76,42 +77,43 @@ export const authService = {
 
   // 创建会话
   async createSession(userId: string): Promise<Session> {
-    const db = getDatabase();
+    const db = await getDatabase();
     const id = uuidv4();
     const token = uuidv4();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    const stmt = db.prepare(`
+    await db.execute(
+      `
       INSERT INTO sessions (id, user_id, token, expires_at)
       VALUES (?, ?, ?, ?)
-    `);
-
-    stmt.run(id, userId, token, expiresAt);
+    `,
+      [id, userId, token, expiresAt]
+    );
 
     return { id, userId, token, expiresAt, createdAt: new Date().toISOString() };
   },
 
   // 验证会话
   async validateSession(sessionId: string): Promise<Session | null> {
-    const db = getDatabase();
-    const stmt = db.prepare("SELECT * FROM sessions WHERE id = ? AND expires_at > datetime('now')");
-    const row = stmt.get(sessionId) as Record<string, unknown> | undefined;
+    const db = await getDatabase();
+    const row = await db.queryOne<Record<string, unknown>>(
+      "SELECT * FROM sessions WHERE id = ? AND expires_at > datetime('now')",
+      [sessionId]
+    );
     return row ? rowToSession(row) : null;
   },
 
   // 删除会话（登出）
   async deleteSession(sessionId: string): Promise<boolean> {
-    const db = getDatabase();
-    const stmt = db.prepare('DELETE FROM sessions WHERE id = ?');
-    const result = stmt.run(sessionId);
-    return result.changes > 0;
+    const db = await getDatabase();
+    const changes = await db.execute('DELETE FROM sessions WHERE id = ?', [sessionId]);
+    return changes > 0;
   },
 
   // 删除用户所有会话
   async deleteUserSessions(userId: string): Promise<void> {
-    const db = getDatabase();
-    const stmt = db.prepare('DELETE FROM sessions WHERE user_id = ?');
-    stmt.run(userId);
+    const db = await getDatabase();
+    await db.execute('DELETE FROM sessions WHERE user_id = ?', [userId]);
   },
 
   // 生成JWT
@@ -131,9 +133,8 @@ export const authService = {
 
   // 清理过期会话
   async cleanExpiredSessions(): Promise<number> {
-    const db = getDatabase();
-    const stmt = db.prepare("DELETE FROM sessions WHERE expires_at <= datetime('now')");
-    const result = stmt.run();
-    return result.changes;
+    const db = await getDatabase();
+    const changes = await db.execute("DELETE FROM sessions WHERE expires_at <= datetime('now')");
+    return changes;
   },
 };

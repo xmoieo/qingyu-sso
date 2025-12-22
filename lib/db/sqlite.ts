@@ -6,10 +6,17 @@ import { existsSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 import { getDatabaseConfig } from './config';
 
-let db: Database.Database | null = null;
+import type { DbClient, QueryResult } from './client';
 
-export function getDatabase(): Database.Database {
-  if (db) return db;
+let rawDb: Database.Database | null = null;
+let client: DbClient | null = null;
+
+function toQueryResult<T>(rows: T[], rowCount?: number): QueryResult<T> {
+  return { rows, rowCount: rowCount ?? rows.length };
+}
+
+export function getDatabase(): DbClient {
+  if (client) return client;
 
   const config = getDatabaseConfig();
 
@@ -25,13 +32,50 @@ export function getDatabase(): Database.Database {
     mkdirSync(dir, { recursive: true });
   }
 
-  db = new Database(dbPath);
-  db.pragma('journal_mode = WAL');
+  rawDb = new Database(dbPath);
+  rawDb.pragma('journal_mode = WAL');
 
   // 初始化表结构
-  initTables(db);
+  initTables(rawDb);
 
-  return db;
+  client = {
+    dialect: 'sqlite',
+    async query<T = Record<string, unknown>>(sql: string, params: unknown[] = []) {
+      if (!rawDb) throw new Error('SQLite not initialized');
+      const stmt = rawDb.prepare(sql);
+      const rows = stmt.all(...params) as T[];
+      return toQueryResult(rows);
+    },
+    async queryOne<T = Record<string, unknown>>(sql: string, params: unknown[] = []) {
+      if (!rawDb) throw new Error('SQLite not initialized');
+      const stmt = rawDb.prepare(sql);
+      const row = stmt.get(...params) as T | undefined;
+      return row ?? null;
+    },
+    async execute(sql: string, params: unknown[] = []) {
+      if (!rawDb) throw new Error('SQLite not initialized');
+      const stmt = rawDb.prepare(sql);
+      const result = stmt.run(...params);
+      return result.changes;
+    },
+    async transaction<T>(fn: (tx: DbClient) => Promise<T>): Promise<T> {
+      if (!rawDb) throw new Error('SQLite not initialized');
+      rawDb.exec('BEGIN');
+      try {
+        const result = await fn(this);
+        rawDb.exec('COMMIT');
+        return result;
+      } catch (err) {
+        rawDb.exec('ROLLBACK');
+        throw err;
+      }
+    },
+    async close() {
+      closeDatabase();
+    },
+  };
+
+  return client;
 }
 
 function initTables(db: Database.Database): void {
@@ -207,8 +251,9 @@ function initTables(db: Database.Database): void {
 }
 
 export function closeDatabase(): void {
-  if (db) {
-    db.close();
-    db = null;
+  if (rawDb) {
+    rawDb.close();
+    rawDb = null;
   }
+  client = null;
 }

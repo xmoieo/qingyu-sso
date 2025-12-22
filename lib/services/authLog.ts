@@ -3,6 +3,7 @@
  */
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../db';
+import { numberFromCount, toIsoString } from '../db/client';
 
 export interface AuthLog {
   id: string;
@@ -19,40 +20,41 @@ export interface AuthLog {
 
 export const authLogService = {
   // 记录授权日志
-  log(params: {
+  async log(params: {
     userId: string;
     clientId: string;
     action: 'authorize' | 'consent' | 'token' | 'revoke';
     ipAddress?: string;
     userAgent?: string;
-  }): void {
-    const db = getDatabase();
+  }): Promise<void> {
+    const db = await getDatabase();
     const id = uuidv4();
 
-    const stmt = db.prepare(`
+    await db.execute(
+      `
       INSERT INTO auth_logs (id, user_id, client_id, action, ip_address, user_agent)
       VALUES (?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
-      id,
-      params.userId,
-      params.clientId,
-      params.action,
-      params.ipAddress || null,
-      params.userAgent || null
+    `,
+      [
+        id,
+        params.userId,
+        params.clientId,
+        params.action,
+        params.ipAddress || null,
+        params.userAgent || null,
+      ]
     );
   },
 
   // 获取用户的授权日志
-  getByUserId(userId: string, page = 1, pageSize = 20): { logs: AuthLog[]; total: number } {
-    const db = getDatabase();
+  async getByUserId(userId: string, page = 1, pageSize = 20): Promise<{ logs: AuthLog[]; total: number }> {
+    const db = await getDatabase();
     const offset = (page - 1) * pageSize;
 
-    const countStmt = db.prepare('SELECT COUNT(*) as count FROM auth_logs WHERE user_id = ?');
-    const countResult = countStmt.get(userId) as { count: number };
+    const countRow = await db.queryOne<{ count: unknown }>('SELECT COUNT(*) as count FROM auth_logs WHERE user_id = ?', [userId]);
+    const total = numberFromCount(countRow?.count ?? 0);
 
-    const stmt = db.prepare(`
+    const rows = (await db.query<Record<string, unknown>>(`
       SELECT al.*, u.username, a.name as application_name
       FROM auth_logs al
       LEFT JOIN users u ON al.user_id = u.id
@@ -60,9 +62,7 @@ export const authLogService = {
       WHERE al.user_id = ?
       ORDER BY al.created_at DESC
       LIMIT ? OFFSET ?
-    `);
-
-    const rows = stmt.all(userId, pageSize, offset) as Array<Record<string, unknown>>;
+    `, [userId, pageSize, offset])).rows;
 
     return {
       logs: rows.map((row) => ({
@@ -72,32 +72,30 @@ export const authLogService = {
         action: row.action as string,
         ipAddress: row.ip_address as string | null,
         userAgent: row.user_agent as string | null,
-        createdAt: row.created_at as string,
+        createdAt: toIsoString(row.created_at),
         username: row.username as string,
         applicationName: row.application_name as string,
       })),
-      total: countResult.count,
+      total,
     };
   },
 
   // 获取所有授权日志（管理员）
-  getAll(page = 1, pageSize = 20): { logs: AuthLog[]; total: number } {
-    const db = getDatabase();
+  async getAll(page = 1, pageSize = 20): Promise<{ logs: AuthLog[]; total: number }> {
+    const db = await getDatabase();
     const offset = (page - 1) * pageSize;
 
-    const countStmt = db.prepare('SELECT COUNT(*) as count FROM auth_logs');
-    const countResult = countStmt.get() as { count: number };
+    const countRow = await db.queryOne<{ count: unknown }>('SELECT COUNT(*) as count FROM auth_logs');
+    const total = numberFromCount(countRow?.count ?? 0);
 
-    const stmt = db.prepare(`
+    const rows = (await db.query<Record<string, unknown>>(`
       SELECT al.*, u.username, a.name as application_name
       FROM auth_logs al
       LEFT JOIN users u ON al.user_id = u.id
       LEFT JOIN applications a ON al.client_id = a.client_id
       ORDER BY al.created_at DESC
       LIMIT ? OFFSET ?
-    `);
-
-    const rows = stmt.all(pageSize, offset) as Array<Record<string, unknown>>;
+    `, [pageSize, offset])).rows;
 
     return {
       logs: rows.map((row) => ({
@@ -107,11 +105,11 @@ export const authLogService = {
         action: row.action as string,
         ipAddress: row.ip_address as string | null,
         userAgent: row.user_agent as string | null,
-        createdAt: row.created_at as string,
+        createdAt: toIsoString(row.created_at),
         username: row.username as string,
         applicationName: row.application_name as string,
       })),
-      total: countResult.count,
+      total,
     };
   },
 };

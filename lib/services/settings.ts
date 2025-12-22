@@ -10,44 +10,45 @@ export interface SystemSettings {
 
 export const settingsService = {
   // 获取设置
-  get(key: string): string | null {
-    const db = getDatabase();
-    const stmt = db.prepare('SELECT value FROM system_settings WHERE key = ?');
-    const row = stmt.get(key) as { value: string } | undefined;
-    return row?.value || null;
+  async get(key: string): Promise<string | null> {
+    const db = await getDatabase();
+    const row = await db.queryOne<{ value: string }>('SELECT value FROM system_settings WHERE key = ?', [key]);
+    return row?.value ?? null;
   },
 
   // 设置值
-  set(key: string, value: string): void {
-    const db = getDatabase();
-    const stmt = db.prepare(`
-      INSERT INTO system_settings (key, value, updated_at) 
+  async set(key: string, value: string): Promise<void> {
+    const db = await getDatabase();
+    await db.execute(
+      `
+      INSERT INTO system_settings (key, value, updated_at)
       VALUES (?, ?, datetime('now'))
       ON CONFLICT(key) DO UPDATE SET value = ?, updated_at = datetime('now')
-    `);
-    stmt.run(key, value, value);
+    `,
+      [key, value, value]
+    );
   },
 
   // 获取所有设置
-  getAll(): SystemSettings {
+  async getAll(): Promise<SystemSettings> {
     return {
-      allowRegistration: this.get('allow_registration') !== 'false',
-      avatarProvider: (this.get('avatar_provider') as 'gravatar' | 'cravatar') || 'gravatar',
+      allowRegistration: (await this.get('allow_registration')) !== 'false',
+      avatarProvider: ((await this.get('avatar_provider')) as 'gravatar' | 'cravatar') || 'gravatar',
     };
   },
 
   // 更新多个设置
-  updateAll(settings: Partial<SystemSettings>): void {
+  async updateAll(settings: Partial<SystemSettings>): Promise<void> {
     if (settings.allowRegistration !== undefined) {
-      this.set('allow_registration', settings.allowRegistration ? 'true' : 'false');
+      await this.set('allow_registration', settings.allowRegistration ? 'true' : 'false');
     }
     if (settings.avatarProvider !== undefined) {
-      this.set('avatar_provider', settings.avatarProvider);
+      await this.set('avatar_provider', settings.avatarProvider);
     }
   },
 
   // 检查是否允许注册
-  isRegistrationAllowed(): boolean {
-    return this.get('allow_registration') !== 'false';
+  async isRegistrationAllowed(): Promise<boolean> {
+    return (await this.get('allow_registration')) !== 'false';
   },
 };

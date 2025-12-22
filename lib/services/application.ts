@@ -4,6 +4,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase, Application } from '../db';
 import crypto from 'crypto';
+import { numberFromCount, toIsoString } from '../db/client';
 
 interface CreateApplicationParams {
   name: string;
@@ -41,33 +42,34 @@ function rowToApplication(row: Record<string, unknown>): Application {
     redirectUris: row.redirect_uris as string,
     scopes: row.scopes as string,
     userId: row.user_id as string,
-    createdAt: row.created_at as string,
-    updatedAt: row.updated_at as string,
+    createdAt: toIsoString(row.created_at),
+    updatedAt: toIsoString(row.updated_at),
   };
 }
 
 export const applicationService = {
   // 创建应用
   async create(params: CreateApplicationParams): Promise<Application> {
-    const db = getDatabase();
+    const db = await getDatabase();
     const id = uuidv4();
     const clientId = generateClientId();
     const clientSecret = generateClientSecret();
 
-    const stmt = db.prepare(`
+    await db.execute(
+      `
       INSERT INTO applications (id, client_id, client_secret, name, description, redirect_uris, scopes, user_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
-      id,
-      clientId,
-      clientSecret,
-      params.name,
-      params.description || null,
-      JSON.stringify(params.redirectUris),
-      JSON.stringify(params.scopes),
-      params.userId
+    `,
+      [
+        id,
+        clientId,
+        clientSecret,
+        params.name,
+        params.description || null,
+        JSON.stringify(params.redirectUris),
+        JSON.stringify(params.scopes),
+        params.userId,
+      ]
     );
 
     return this.findById(id) as Promise<Application>;
@@ -75,17 +77,15 @@ export const applicationService = {
 
   // 根据ID查找应用
   async findById(id: string): Promise<Application | null> {
-    const db = getDatabase();
-    const stmt = db.prepare('SELECT * FROM applications WHERE id = ?');
-    const row = stmt.get(id) as Record<string, unknown> | undefined;
+    const db = await getDatabase();
+    const row = await db.queryOne<Record<string, unknown>>('SELECT * FROM applications WHERE id = ?', [id]);
     return row ? rowToApplication(row) : null;
   },
 
   // 根据客户端ID查找应用
   async findByClientId(clientId: string): Promise<Application | null> {
-    const db = getDatabase();
-    const stmt = db.prepare('SELECT * FROM applications WHERE client_id = ?');
-    const row = stmt.get(clientId) as Record<string, unknown> | undefined;
+    const db = await getDatabase();
+    const row = await db.queryOne<Record<string, unknown>>('SELECT * FROM applications WHERE client_id = ?', [clientId]);
     return row ? rowToApplication(row) : null;
   },
 
@@ -96,7 +96,7 @@ export const applicationService = {
 
   // 更新应用信息
   async update(id: string, params: UpdateApplicationParams): Promise<Application | null> {
-    const db = getDatabase();
+    const db = await getDatabase();
     const updates: string[] = [];
     const values: unknown[] = [];
 
@@ -124,26 +124,27 @@ export const applicationService = {
     updates.push("updated_at = datetime('now')");
     values.push(id);
 
-    const stmt = db.prepare(`UPDATE applications SET ${updates.join(', ')} WHERE id = ?`);
-    stmt.run(...values);
+    await db.execute(`UPDATE applications SET ${updates.join(', ')} WHERE id = ?`, values);
 
     return this.findById(id);
   },
 
   // 重新生成客户端密钥
   async regenerateSecret(id: string): Promise<string | null> {
-    const db = getDatabase();
+    const db = await getDatabase();
     const newSecret = generateClientSecret();
 
-    const stmt = db.prepare(`UPDATE applications SET client_secret = ?, updated_at = datetime('now') WHERE id = ?`);
-    const result = stmt.run(newSecret, id);
+    const changes = await db.execute(
+      `UPDATE applications SET client_secret = ?, updated_at = datetime('now') WHERE id = ?`,
+      [newSecret, id]
+    );
 
-    return result.changes > 0 ? newSecret : null;
+    return changes > 0 ? newSecret : null;
   },
 
   // 删除应用（同时清理相关的授权数据）
   async delete(id: string): Promise<boolean> {
-    const db = getDatabase();
+    const db = await getDatabase();
     
     // 先获取应用信息
     const app = await this.findById(id);
@@ -152,38 +153,37 @@ export const applicationService = {
     }
 
     // 删除相关的刷新令牌
-    db.prepare(`
+    await db.execute(`
       DELETE FROM refresh_tokens WHERE access_token_id IN (
         SELECT id FROM access_tokens WHERE client_id = ?
       )
-    `).run(app.clientId);
+    `, [app.clientId]);
 
     // 删除相关的访问令牌
-    db.prepare('DELETE FROM access_tokens WHERE client_id = ?').run(app.clientId);
+    await db.execute('DELETE FROM access_tokens WHERE client_id = ?', [app.clientId]);
 
     // 删除相关的授权码
-    db.prepare('DELETE FROM authorization_codes WHERE client_id = ?').run(app.clientId);
+    await db.execute('DELETE FROM authorization_codes WHERE client_id = ?', [app.clientId]);
 
     // 删除用户授权同意记录
-    db.prepare('DELETE FROM user_consents WHERE client_id = ?').run(app.clientId);
+    await db.execute('DELETE FROM user_consents WHERE client_id = ?', [app.clientId]);
 
     // 删除应用权限记录
-    db.prepare('DELETE FROM application_permissions WHERE application_id = ?').run(id);
+    await db.execute('DELETE FROM application_permissions WHERE application_id = ?', [id]);
 
     // 删除授权日志
-    db.prepare('DELETE FROM auth_logs WHERE client_id = ?').run(app.clientId);
+    await db.execute('DELETE FROM auth_logs WHERE client_id = ?', [app.clientId]);
 
     // 最后删除应用
-    const stmt = db.prepare('DELETE FROM applications WHERE id = ?');
-    const result = stmt.run(id);
-    return result.changes > 0;
+    const changes = await db.execute('DELETE FROM applications WHERE id = ?', [id]);
+    return changes > 0;
   },
 
   // 获取用户的所有应用（包含有权限访问的应用）
   async findByUserId(userId: string): Promise<Application[]> {
-    const db = getDatabase();
+    const db = await getDatabase();
     // 获取用户创建的应用和有权限访问的应用
-    const stmt = db.prepare(`
+    const rows = (await db.query<Record<string, unknown>>(`
       SELECT DISTINCT a.*, 
         CASE WHEN a.user_id = ? THEN 'owner' ELSE ap.permission END as access_type,
         u.username as owner_username
@@ -192,8 +192,7 @@ export const applicationService = {
       LEFT JOIN users u ON a.user_id = u.id
       WHERE a.user_id = ? OR ap.user_id = ?
       ORDER BY a.created_at DESC
-    `);
-    const rows = stmt.all(userId, userId, userId, userId) as Record<string, unknown>[];
+    `, [userId, userId, userId, userId])).rows;
     return rows.map((row) => ({
       ...rowToApplication(row),
       accessType: row.access_type as string,
@@ -203,41 +202,42 @@ export const applicationService = {
 
   // 获取所有应用（仅管理员）
   async findAll(page = 1, limit = 20): Promise<{ applications: Application[]; total: number }> {
-    const db = getDatabase();
+    const db = await getDatabase();
     const offset = (page - 1) * limit;
 
-    const countStmt = db.prepare('SELECT COUNT(*) as count FROM applications');
-    const countResult = countStmt.get() as { count: number };
+    const countRow = await db.queryOne<{ count: unknown }>('SELECT COUNT(*) as count FROM applications');
+    const total = numberFromCount(countRow?.count ?? 0);
 
-    const stmt = db.prepare(`
+    const rows = (await db.query<Record<string, unknown>>(`
       SELECT a.*, u.username as owner_username
       FROM applications a
       LEFT JOIN users u ON a.user_id = u.id
       ORDER BY a.created_at DESC LIMIT ? OFFSET ?
-    `);
-    const rows = stmt.all(limit, offset) as Record<string, unknown>[];
+    `, [limit, offset])).rows;
 
     return {
       applications: rows.map((row) => ({
         ...rowToApplication(row),
         ownerUsername: row.owner_username as string,
       })),
-      total: countResult.count,
+      total,
     };
   },
 
   // 添加应用访问权限
   async addPermission(applicationId: string, userId: string, permission: 'view' | 'edit'): Promise<boolean> {
-    const db = getDatabase();
+    const db = await getDatabase();
     const id = uuidv4();
 
     try {
-      const stmt = db.prepare(`
+      await db.execute(
+        `
         INSERT INTO application_permissions (id, application_id, user_id, permission)
         VALUES (?, ?, ?, ?)
         ON CONFLICT(application_id, user_id) DO UPDATE SET permission = ?
-      `);
-      stmt.run(id, applicationId, userId, permission, permission);
+      `,
+        [id, applicationId, userId, permission, permission]
+      );
       return true;
     } catch {
       return false;
@@ -246,22 +246,23 @@ export const applicationService = {
 
   // 移除应用访问权限
   async removePermission(applicationId: string, userId: string): Promise<boolean> {
-    const db = getDatabase();
-    const stmt = db.prepare('DELETE FROM application_permissions WHERE application_id = ? AND user_id = ?');
-    const result = stmt.run(applicationId, userId);
-    return result.changes > 0;
+    const db = await getDatabase();
+    const changes = await db.execute('DELETE FROM application_permissions WHERE application_id = ? AND user_id = ?', [
+      applicationId,
+      userId,
+    ]);
+    return changes > 0;
   },
 
   // 获取应用的权限列表
   async getPermissions(applicationId: string): Promise<Array<{ userId: string; username: string; permission: string }>> {
-    const db = getDatabase();
-    const stmt = db.prepare(`
+    const db = await getDatabase();
+    const rows = (await db.query<Record<string, unknown>>(`
       SELECT ap.user_id, ap.permission, u.username
       FROM application_permissions ap
       JOIN users u ON ap.user_id = u.id
       WHERE ap.application_id = ?
-    `);
-    const rows = stmt.all(applicationId) as Array<Record<string, unknown>>;
+    `, [applicationId])).rows;
     return rows.map((row) => ({
       userId: row.user_id as string,
       username: row.username as string,
@@ -271,18 +272,19 @@ export const applicationService = {
 
   // 检查用户对应用的权限
   async checkPermission(applicationId: string, userId: string): Promise<'owner' | 'edit' | 'view' | null> {
-    const db = getDatabase();
+    const db = await getDatabase();
     
     // 检查是否是所有者
-    const ownerStmt = db.prepare('SELECT user_id FROM applications WHERE id = ?');
-    const app = ownerStmt.get(applicationId) as { user_id: string } | undefined;
+    const app = await db.queryOne<{ user_id: string }>('SELECT user_id FROM applications WHERE id = ?', [applicationId]);
     
     if (!app) return null;
     if (app.user_id === userId) return 'owner';
 
     // 检查权限表
-    const permStmt = db.prepare('SELECT permission FROM application_permissions WHERE application_id = ? AND user_id = ?');
-    const perm = permStmt.get(applicationId, userId) as { permission: string } | undefined;
+    const perm = await db.queryOne<{ permission: string }>(
+      'SELECT permission FROM application_permissions WHERE application_id = ? AND user_id = ?',
+      [applicationId, userId]
+    );
     
     return perm?.permission as 'edit' | 'view' | null;
   },

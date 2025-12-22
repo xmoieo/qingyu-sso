@@ -26,16 +26,15 @@ export async function GET(request: NextRequest) {
       return successResponse([]);
     }
 
-    const db = getDatabase();
-    const stmt = db.prepare(`
+    const db = await getDatabase();
+    const searchTerm = `%${query}%`;
+
+    const rows = (await db.query<Record<string, unknown>>(`
       SELECT id, username, nickname, email, role
       FROM users
       WHERE username LIKE ? OR nickname LIKE ? OR email LIKE ?
       LIMIT 10
-    `);
-
-    const searchTerm = `%${query}%`;
-    const rows = stmt.all(searchTerm, searchTerm, searchTerm) as Array<Record<string, unknown>>;
+    `, [searchTerm, searchTerm, searchTerm])).rows;
 
     const users = rows.map((row) => ({
       id: row.id as string,

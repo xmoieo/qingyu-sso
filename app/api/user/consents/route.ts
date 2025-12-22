@@ -6,6 +6,7 @@
 import { NextRequest } from 'next/server';
 import { getDatabase } from '@/lib/db';
 import { getAuthContext, successResponse, errorResponse, unauthorizedResponse, serverErrorResponse } from '@/lib/utils';
+import { toIsoString } from '@/lib/db/client';
 
 interface ConsentedApp {
   clientId: string;
@@ -24,8 +25,8 @@ export async function GET() {
       return unauthorizedResponse();
     }
 
-    const db = getDatabase();
-    const stmt = db.prepare(`
+    const db = await getDatabase();
+    const rows = (await db.query<Record<string, unknown>>(`
       SELECT uc.client_id, uc.scope, uc.created_at,
              a.name as app_name, a.description as app_description,
              u.username as owner_username
@@ -34,16 +35,14 @@ export async function GET() {
       JOIN users u ON a.user_id = u.id
       WHERE uc.user_id = ?
       ORDER BY uc.created_at DESC
-    `);
-
-    const rows = stmt.all(auth.user.id) as Array<Record<string, unknown>>;
+    `, [auth.user.id])).rows;
 
     const consents: ConsentedApp[] = rows.map((row) => ({
       clientId: row.client_id as string,
       appName: row.app_name as string,
       appDescription: row.app_description as string | null,
       scope: row.scope as string,
-      createdAt: row.created_at as string,
+      createdAt: toIsoString(row.created_at),
       ownerUsername: row.owner_username as string,
     }));
 
@@ -69,25 +68,26 @@ export async function DELETE(request: NextRequest) {
       return errorResponse('缺少 clientId 参数');
     }
 
-    const db = getDatabase();
+    const db = await getDatabase();
 
     // 删除用户授权记录
-    const stmt = db.prepare('DELETE FROM user_consents WHERE user_id = ? AND client_id = ?');
-    const result = stmt.run(auth.user.id, clientId);
+    const changes = await db.execute('DELETE FROM user_consents WHERE user_id = ? AND client_id = ?', [auth.user.id, clientId]);
 
-    if (result.changes === 0) {
+    if (changes === 0) {
       return errorResponse('授权记录不存在');
     }
 
     // 同时删除相关的访问令牌和刷新令牌
-    const tokenStmt = db.prepare('SELECT id FROM access_tokens WHERE user_id = ? AND client_id = ?');
-    const tokens = tokenStmt.all(auth.user.id, clientId) as Array<{ id: string }>;
+    const tokens = (await db.query<{ id: string }>('SELECT id FROM access_tokens WHERE user_id = ? AND client_id = ?', [
+      auth.user.id,
+      clientId,
+    ])).rows;
 
     for (const token of tokens) {
-      db.prepare('DELETE FROM refresh_tokens WHERE access_token_id = ?').run(token.id);
+      await db.execute('DELETE FROM refresh_tokens WHERE access_token_id = ?', [token.id]);
     }
 
-    db.prepare('DELETE FROM access_tokens WHERE user_id = ? AND client_id = ?').run(auth.user.id, clientId);
+    await db.execute('DELETE FROM access_tokens WHERE user_id = ? AND client_id = ?', [auth.user.id, clientId]);
 
     return successResponse(null, '已撤销授权');
   } catch (error) {

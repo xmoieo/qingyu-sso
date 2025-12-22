@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
       || 'unknown';
     const userAgent = request.headers.get('user-agent') || undefined;
     
-    authLogService.log({
+    await authLogService.log({
       userId: auth.user.id,
       clientId,
       action: 'consent',

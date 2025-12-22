@@ -44,24 +44,25 @@ interface UserInfo {
 export const oauthService = {
   // 创建授权码
   async createAuthorizationCode(params: CreateAuthCodeParams): Promise<string> {
-    const db = getDatabase();
+    const db = await getDatabase();
     const code = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + AUTH_CODE_EXPIRES_IN).toISOString();
 
-    const stmt = db.prepare(`
+    await db.execute(
+      `
       INSERT INTO authorization_codes (code, client_id, user_id, redirect_uri, scope, code_challenge, code_challenge_method, expires_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
-      code,
-      params.clientId,
-      params.userId,
-      params.redirectUri,
-      params.scope,
-      params.codeChallenge || null,
-      params.codeChallengeMethod || null,
-      expiresAt
+    `,
+      [
+        code,
+        params.clientId,
+        params.userId,
+        params.redirectUri,
+        params.scope,
+        params.codeChallenge || null,
+        params.codeChallengeMethod || null,
+        expiresAt,
+      ]
     );
 
     return code;
@@ -76,20 +77,21 @@ export const oauthService = {
     codeChallenge?: string;
     codeChallengeMethod?: string;
   } | null> {
-    const db = getDatabase();
-    const stmt = db.prepare(`
+    const db = await getDatabase();
+    const row = await db.queryOne<Record<string, unknown>>(
+      `
       SELECT * FROM authorization_codes 
       WHERE code = ? AND expires_at > datetime('now')
-    `);
-    const row = stmt.get(code) as Record<string, unknown> | undefined;
+    `,
+      [code]
+    );
 
     if (!row) {
       return null;
     }
 
     // 删除已使用的授权码（一次性使用）
-    const deleteStmt = db.prepare('DELETE FROM authorization_codes WHERE code = ?');
-    deleteStmt.run(code);
+    await db.execute('DELETE FROM authorization_codes WHERE code = ?', [code]);
 
     return {
       clientId: row.client_id as string,
@@ -119,34 +121,36 @@ export const oauthService = {
     accessTokenId: string;
     expiresAt: Date;
   }> {
-    const db = getDatabase();
+    const db = await getDatabase();
     const id = uuidv4();
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + ACCESS_TOKEN_EXPIRES_IN);
 
-    const stmt = db.prepare(`
+    await db.execute(
+      `
       INSERT INTO access_tokens (id, token, client_id, user_id, scope, expires_at)
       VALUES (?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(id, token, clientId, userId, scope, expiresAt.toISOString());
+    `,
+      [id, token, clientId, userId, scope, expiresAt.toISOString()]
+    );
 
     return { accessToken: token, accessTokenId: id, expiresAt };
   },
 
   // 创建刷新令牌
   async createRefreshToken(accessTokenId: string): Promise<string> {
-    const db = getDatabase();
+    const db = await getDatabase();
     const id = uuidv4();
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRES_IN).toISOString();
 
-    const stmt = db.prepare(`
+    await db.execute(
+      `
       INSERT INTO refresh_tokens (id, token, access_token_id, expires_at)
       VALUES (?, ?, ?, ?)
-    `);
-
-    stmt.run(id, token, accessTokenId, expiresAt);
+    `,
+      [id, token, accessTokenId, expiresAt]
+    );
 
     return token;
   },
@@ -157,12 +161,14 @@ export const oauthService = {
     clientId: string;
     scope: string;
   } | null> {
-    const db = getDatabase();
-    const stmt = db.prepare(`
+    const db = await getDatabase();
+    const row = await db.queryOne<Record<string, unknown>>(
+      `
       SELECT * FROM access_tokens 
       WHERE token = ? AND expires_at > datetime('now')
-    `);
-    const row = stmt.get(token) as Record<string, unknown> | undefined;
+    `,
+      [token]
+    );
 
     if (!row) {
       return null;
@@ -182,14 +188,16 @@ export const oauthService = {
     clientId: string;
     scope: string;
   } | null> {
-    const db = getDatabase();
-    const stmt = db.prepare(`
+    const db = await getDatabase();
+    const row = await db.queryOne<Record<string, unknown>>(
+      `
       SELECT rt.*, at.user_id, at.client_id, at.scope
       FROM refresh_tokens rt
       JOIN access_tokens at ON rt.access_token_id = at.id
       WHERE rt.token = ? AND rt.expires_at > datetime('now')
-    `);
-    const row = stmt.get(token) as Record<string, unknown> | undefined;
+    `,
+      [token]
+    );
 
     if (!row) {
       return null;
@@ -205,28 +213,21 @@ export const oauthService = {
 
   // 撤销令牌
   async revokeToken(token: string): Promise<boolean> {
-    const db = getDatabase();
+    const db = await getDatabase();
 
     // 尝试作为访问令牌删除
-    let stmt = db.prepare('DELETE FROM access_tokens WHERE token = ?');
-    let result = stmt.run(token);
-
-    if (result.changes > 0) {
-      return true;
-    }
+    const accessChanges = await db.execute('DELETE FROM access_tokens WHERE token = ?', [token]);
+    if (accessChanges > 0) return true;
 
     // 尝试作为刷新令牌删除
-    stmt = db.prepare('DELETE FROM refresh_tokens WHERE token = ?');
-    result = stmt.run(token);
-
-    return result.changes > 0;
+    const refreshChanges = await db.execute('DELETE FROM refresh_tokens WHERE token = ?', [token]);
+    return refreshChanges > 0;
   },
 
   // 生成ID Token (OIDC) - 使用RS256算法
   async generateIdToken(userId: string, clientId: string, nonce?: string): Promise<string> {
-    const db = getDatabase();
-    const userStmt = db.prepare('SELECT * FROM users WHERE id = ?');
-    const user = userStmt.get(userId) as Record<string, unknown> | undefined;
+    const db = await getDatabase();
+    const user = await db.queryOne<Record<string, unknown>>('SELECT * FROM users WHERE id = ?', [userId]);
 
     if (!user) {
       throw new Error('用户不存在');
@@ -261,9 +262,8 @@ export const oauthService = {
 
   // 获取用户信息 (OIDC UserInfo)
   async getUserInfo(userId: string, scope: string): Promise<UserInfo> {
-    const db = getDatabase();
-    const stmt = db.prepare('SELECT * FROM users WHERE id = ?');
-    const user = stmt.get(userId) as Record<string, unknown> | undefined;
+    const db = await getDatabase();
+    const user = await db.queryOne<Record<string, unknown>>('SELECT * FROM users WHERE id = ?', [userId]);
 
     if (!user) {
       throw new Error('用户不存在');
@@ -376,9 +376,8 @@ export const oauthService = {
       result.refresh_token = await this.createRefreshToken(accessTokenId);
 
       // 删除旧的刷新令牌
-      const db = getDatabase();
-      const stmt = db.prepare('DELETE FROM refresh_tokens WHERE token = ?');
-      stmt.run(refreshToken);
+      const db = await getDatabase();
+      await db.execute('DELETE FROM refresh_tokens WHERE token = ?', [refreshToken]);
     }
 
     return result;
@@ -386,25 +385,27 @@ export const oauthService = {
 
   // 保存用户授权同意
   async saveUserConsent(userId: string, clientId: string, scope: string): Promise<void> {
-    const db = getDatabase();
+    const db = await getDatabase();
     const id = uuidv4();
 
-    const stmt = db.prepare(`
-      INSERT OR REPLACE INTO user_consents (id, user_id, client_id, scope, created_at)
+    await db.execute(
+      `
+      INSERT INTO user_consents (id, user_id, client_id, scope, created_at)
       VALUES (?, ?, ?, ?, datetime('now'))
-    `);
-
-    stmt.run(id, userId, clientId, scope);
+      ON CONFLICT(user_id, client_id) DO UPDATE SET scope = ?, created_at = datetime('now')
+    `,
+      [id, userId, clientId, scope, scope]
+    );
   },
 
   // 检查用户是否已授权
   async checkUserConsent(userId: string, clientId: string): Promise<string | null> {
-    const db = getDatabase();
-    const stmt = db.prepare(`
-      SELECT scope FROM user_consents WHERE user_id = ? AND client_id = ?
-    `);
-    const row = stmt.get(userId, clientId) as { scope: string } | undefined;
+    const db = await getDatabase();
+    const row = await db.queryOne<{ scope: string }>(
+      'SELECT scope FROM user_consents WHERE user_id = ? AND client_id = ?',
+      [userId, clientId]
+    );
 
-    return row?.scope || null;
+    return row?.scope ?? null;
   },
 };

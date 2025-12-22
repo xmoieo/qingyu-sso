@@ -4,6 +4,7 @@
  */
 import { getDatabase } from '@/lib/db';
 import { getAuthContext, successResponse, unauthorizedResponse, serverErrorResponse } from '@/lib/utils';
+import { numberFromCount } from '@/lib/db/client';
 
 export async function GET() {
   try {
@@ -13,21 +14,21 @@ export async function GET() {
       return unauthorizedResponse();
     }
 
-    const db = getDatabase();
+    const db = await getDatabase();
 
     // 获取用户总数
-    const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
+    const userCount = await db.queryOne<{ count: unknown }>('SELECT COUNT(*) as count FROM users');
 
     // 获取应用总数
-    const appCount = db.prepare('SELECT COUNT(*) as count FROM applications').get() as { count: number };
+    const appCount = await db.queryOne<{ count: unknown }>('SELECT COUNT(*) as count FROM applications');
 
     // 获取授权次数（访问令牌数量）
-    const authCount = db.prepare('SELECT COUNT(*) as count FROM access_tokens').get() as { count: number };
+    const authCount = await db.queryOne<{ count: unknown }>('SELECT COUNT(*) as count FROM access_tokens');
 
     return successResponse({
-      totalUsers: userCount.count,
-      totalApplications: appCount.count,
-      totalAuthorizations: authCount.count,
+      totalUsers: numberFromCount(userCount?.count ?? 0),
+      totalApplications: numberFromCount(appCount?.count ?? 0),
+      totalAuthorizations: numberFromCount(authCount?.count ?? 0),
     });
   } catch (error) {
     console.error('获取统计数据失败:', error);

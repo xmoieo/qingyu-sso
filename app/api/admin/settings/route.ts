@@ -4,7 +4,7 @@
  */
 import { NextRequest } from 'next/server';
 import { settingsService } from '@/lib/services';
-import { getAuthContext, successResponse, errorResponse, unauthorizedResponse, forbiddenResponse, serverErrorResponse } from '@/lib/utils';
+import { getAuthContext, successResponse, unauthorizedResponse, forbiddenResponse, serverErrorResponse } from '@/lib/utils';
 import { UserRole } from '@/lib/types';
 
 // 获取系统设置
@@ -20,7 +20,7 @@ export async function GET() {
       return forbiddenResponse();
     }
 
-    const settings = settingsService.getAll();
+    const settings = await settingsService.getAll();
     return successResponse(settings);
   } catch (error) {
     console.error('获取系统设置失败:', error);
@@ -44,12 +44,12 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { allowRegistration, avatarProvider } = body;
 
-    settingsService.updateAll({
+    await settingsService.updateAll({
       allowRegistration,
       avatarProvider,
     });
 
-    const settings = settingsService.getAll();
+    const settings = await settingsService.getAll();
     return successResponse(settings, '设置已更新');
   } catch (error) {
     console.error('更新系统设置失败:', error);
