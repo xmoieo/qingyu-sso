@@ -33,7 +33,7 @@ import AppsIcon from '@mui/icons-material/Apps';
 import PeopleIcon from '@mui/icons-material/People';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import { UserRole } from '@/lib/db';
+import { UserRole } from '@/lib/types';
 
 const DRAWER_WIDTH = 240;
 const DRAWER_WIDTH_COLLAPSED = 64;

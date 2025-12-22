@@ -19,7 +19,7 @@ import IconButton from '@mui/material/IconButton';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { DashboardLayout } from '@/components/layout';
-import { UserRole } from '@/lib/db';
+import { UserRole } from '@/lib/types';
 
 interface User {
   id: string;

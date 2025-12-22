@@ -26,7 +26,7 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { DashboardLayout } from '@/components/layout';
-import { UserRole } from '@/lib/db';
+import { UserRole } from '@/lib/types';
 
 interface User {
   id: string;

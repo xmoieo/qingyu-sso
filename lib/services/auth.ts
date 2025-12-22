@@ -94,7 +94,7 @@ export const authService = {
   // 验证会话
   async validateSession(sessionId: string): Promise<Session | null> {
     const db = getDatabase();
-    const stmt = db.prepare('SELECT * FROM sessions WHERE id = ? AND expires_at > datetime("now")');
+    const stmt = db.prepare("SELECT * FROM sessions WHERE id = ? AND expires_at > datetime('now')");
     const row = stmt.get(sessionId) as Record<string, unknown> | undefined;
     return row ? rowToSession(row) : null;
   },
@@ -131,7 +131,7 @@ export const authService = {
   // 清理过期会话
   async cleanExpiredSessions(): Promise<number> {
     const db = getDatabase();
-    const stmt = db.prepare('DELETE FROM sessions WHERE expires_at <= datetime("now")');
+    const stmt = db.prepare("DELETE FROM sessions WHERE expires_at <= datetime('now')");
     const result = stmt.run();
     return result.changes;
   },

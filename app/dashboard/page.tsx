@@ -13,7 +13,7 @@ import AppsIcon from '@mui/icons-material/Apps';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import SecurityIcon from '@mui/icons-material/Security';
 import { DashboardLayout } from '@/components/layout';
-import { UserRole } from '@/lib/db';
+import { UserRole } from '@/lib/types';
 
 interface User {
   id: string;
