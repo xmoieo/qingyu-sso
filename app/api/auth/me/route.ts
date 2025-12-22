@@ -3,6 +3,7 @@
  * GET /api/auth/me
  */
 import { getAuthContext, successResponse, unauthorizedResponse, serverErrorResponse } from '@/lib/utils';
+import { getUserAvatarUrl } from '@/lib/avatar';
 
 export async function GET() {
   try {
@@ -16,7 +17,10 @@ export async function GET() {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...userWithoutPassword } = auth.user;
 
-    return successResponse(userWithoutPassword);
+    return successResponse({
+      ...userWithoutPassword,
+      avatar: getUserAvatarUrl(userWithoutPassword),
+    });
   } catch (error) {
     console.error('获取用户信息失败:', error);
     return serverErrorResponse('获取用户信息失败');
