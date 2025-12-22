@@ -44,6 +44,13 @@ export async function POST(request: NextRequest) {
       return unauthorizedResponse();
     }
 
+    // CSRF 防护：要求前端携带 X-CSRF-Token，并与 oauth_csrf Cookie 一致
+    const csrfHeader = request.headers.get('x-csrf-token');
+    const csrfCookie = request.cookies.get('oauth_csrf')?.value;
+    if (!csrfHeader || !csrfCookie || csrfHeader !== csrfCookie) {
+      return errorResponse('CSRF校验失败', 403);
+    }
+
     const body = await request.json();
     const {
       clientId,
@@ -54,6 +61,10 @@ export async function POST(request: NextRequest) {
       codeChallengeMethod,
       approve,
     } = body;
+
+    if (!state) {
+      return errorResponse('state参数缺失', 400);
+    }
 
     // 验证客户端
     const app = await applicationService.findByClientId(clientId);

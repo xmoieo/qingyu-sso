@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { applicationService, oauthService } from '@/lib/services';
 import { getAuthContext } from '@/lib/utils';
+import crypto from 'crypto';
 
 const APP_URL = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
@@ -41,29 +42,33 @@ export async function GET(request: NextRequest) {
   const codeChallenge = searchParams.get('code_challenge');
   const codeChallengeMethod = searchParams.get('code_challenge_method');
 
+  // OAuth state：若客户端未提供，则生成一个并贯穿整个流程。
+  // 说明：标准 OAuth 里 state 通常由客户端生成并校验；这里的生成主要用于避免无 state 的请求导致 CSRF 防护缺口。
+  const effectiveState = state || crypto.randomBytes(16).toString('hex');
+
   // 参数验证
   if (!responseType || responseType !== 'code') {
-    return createErrorResponse(redirectUri, 'unsupported_response_type', 'Only code response type is supported', state);
+    return createErrorResponse(redirectUri, 'unsupported_response_type', 'Only code response type is supported', effectiveState);
   }
 
   if (!clientId) {
-    return createErrorResponse(redirectUri, 'invalid_request', 'client_id is required', state);
+    return createErrorResponse(redirectUri, 'invalid_request', 'client_id is required', effectiveState);
   }
 
   if (!redirectUri) {
-    return createErrorResponse(null, 'invalid_request', 'redirect_uri is required', state);
+    return createErrorResponse(null, 'invalid_request', 'redirect_uri is required', effectiveState);
   }
 
   // 验证客户端
   const app = await applicationService.findByClientId(clientId);
   if (!app) {
-    return createErrorResponse(null, 'invalid_client', 'Client not found', state);
+    return createErrorResponse(null, 'invalid_client', 'Client not found', effectiveState);
   }
 
   // 验证重定向URI
   const allowedUris = JSON.parse(app.redirectUris) as string[];
   if (!isRedirectUriAllowed(redirectUri, allowedUris)) {
-    return createErrorResponse(null, 'invalid_request', 'Invalid redirect_uri', state);
+    return createErrorResponse(null, 'invalid_request', 'Invalid redirect_uri', effectiveState);
   }
 
   // 验证scope
@@ -71,7 +76,7 @@ export async function GET(request: NextRequest) {
   const requestedScopes = scope.split(' ');
   for (const s of requestedScopes) {
     if (!allowedScopes.includes(s)) {
-      return createErrorResponse(redirectUri, 'invalid_scope', `Scope '${s}' is not allowed`, state);
+      return createErrorResponse(redirectUri, 'invalid_scope', `Scope '${s}' is not allowed`, effectiveState);
     }
   }
 
@@ -80,7 +85,9 @@ export async function GET(request: NextRequest) {
 
   if (!auth) {
     // 重定向到登录页面，带上当前完整的授权URL
-    const currentUrl = `${APP_URL}/api/oauth/authorize?${searchParams.toString()}`;
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('state', effectiveState);
+    const currentUrl = `${APP_URL}/api/oauth/authorize?${params.toString()}`;
     const loginUrl = new URL('/login', APP_URL);
     loginUrl.searchParams.set('returnUrl', currentUrl);
     return NextResponse.redirect(loginUrl);
@@ -102,9 +109,7 @@ export async function GET(request: NextRequest) {
 
     const callbackUrl = new URL(redirectUri);
     callbackUrl.searchParams.set('code', code);
-    if (state) {
-      callbackUrl.searchParams.set('state', state);
-    }
+    callbackUrl.searchParams.set('state', effectiveState);
 
     return NextResponse.redirect(callbackUrl);
   }
@@ -114,9 +119,7 @@ export async function GET(request: NextRequest) {
   consentUrl.searchParams.set('client_id', clientId);
   consentUrl.searchParams.set('redirect_uri', redirectUri);
   consentUrl.searchParams.set('scope', scope);
-  if (state) {
-    consentUrl.searchParams.set('state', state);
-  }
+  consentUrl.searchParams.set('state', effectiveState);
   if (nonce) {
     consentUrl.searchParams.set('nonce', nonce);
   }
@@ -127,7 +130,17 @@ export async function GET(request: NextRequest) {
     consentUrl.searchParams.set('code_challenge_method', codeChallengeMethod);
   }
 
-  return NextResponse.redirect(consentUrl);
+  // CSRF 防护：为同意接口下发一次性 CSRF token（双提交 Cookie）。
+  const csrfToken = crypto.randomBytes(32).toString('hex');
+  const response = NextResponse.redirect(consentUrl);
+  response.cookies.set('oauth_csrf', csrfToken, {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 10 * 60, // 10分钟
+    path: '/',
+  });
+  return response;
 }
 
 function createErrorResponse(redirectUri: string | null, error: string, description: string, state: string | null) {

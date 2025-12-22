@@ -62,6 +62,21 @@ const scopeInfoMap: Record<string, Omit<ScopeInfo, 'scope'>> = {
   },
 };
 
+function getCookieValue(name: string): string | null {
+  if (typeof document === 'undefined') return null;
+  const parts = document.cookie.split(';').map((p) => p.trim());
+  for (const part of parts) {
+    if (!part) continue;
+    const eqIndex = part.indexOf('=');
+    if (eqIndex === -1) continue;
+    const key = part.slice(0, eqIndex);
+    if (key === name) {
+      return decodeURIComponent(part.slice(eqIndex + 1));
+    }
+  }
+  return null;
+}
+
 function AuthorizeLoading() {
   return (
     <Box
@@ -128,9 +143,13 @@ function AuthorizeContent() {
     setError('');
 
     try {
+      const csrfToken = getCookieValue('oauth_csrf');
       const response = await fetch('/api/oauth/consent', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+        },
         body: JSON.stringify({
           clientId,
           redirectUri,
