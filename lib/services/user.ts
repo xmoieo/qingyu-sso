@@ -97,7 +97,8 @@ export const userService = {
   },
 
   // 验证密码
-  async verifyPassword(user: User, password: string): Promise<boolean> {
+  async verifyPassword(user: User | null, password: string): Promise<boolean> {
+    if (!user) return false;
     return bcrypt.compare(password, user.password);
   },
 
