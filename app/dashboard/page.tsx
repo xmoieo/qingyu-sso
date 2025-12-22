@@ -3,11 +3,11 @@
  * 仪表盘页面
  */
 import { useEffect, useState } from 'react';
-import Box from '@mui/material/Box';
-import Grid from '@mui/material/Grid';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import Typography from '@mui/material/Typography';
+import Box from '@mui/joy/Box';
+import Card from '@mui/joy/Card';
+import CardContent from '@mui/joy/CardContent';
+import Typography from '@mui/joy/Typography';
+import Grid from '@mui/joy/Grid';
 import PeopleIcon from '@mui/icons-material/People';
 import AppsIcon from '@mui/icons-material/Apps';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
@@ -38,7 +38,6 @@ export default function DashboardPage() {
   });
 
   useEffect(() => {
-    // 获取用户信息
     const fetchUser = async () => {
       try {
         const response = await fetch('/api/auth/me');
@@ -51,7 +50,6 @@ export default function DashboardPage() {
       }
     };
 
-    // 获取统计数据
     const fetchStats = async () => {
       try {
         const response = await fetch('/api/stats');
@@ -86,21 +84,21 @@ export default function DashboardPage() {
       title: '用户总数',
       value: stats.totalUsers,
       icon: <PeopleIcon sx={{ fontSize: 40 }} />,
-      color: '#1976d2',
+      color: 'primary.500',
       roles: [UserRole.ADMIN],
     },
     {
       title: '应用总数',
       value: stats.totalApplications,
       icon: <AppsIcon sx={{ fontSize: 40 }} />,
-      color: '#2e7d32',
+      color: 'success.500',
       roles: [UserRole.ADMIN, UserRole.DEVELOPER],
     },
     {
       title: '授权次数',
       value: stats.totalAuthorizations,
       icon: <VpnKeyIcon sx={{ fontSize: 40 }} />,
-      color: '#ed6c02',
+      color: 'warning.500',
       roles: [UserRole.ADMIN, UserRole.DEVELOPER],
     },
   ];
@@ -112,26 +110,26 @@ export default function DashboardPage() {
   return (
     <DashboardLayout>
       <Box>
-        <Typography variant="h4" gutterBottom fontWeight="medium">
+        <Typography level="h2" sx={{ mb: 1 }}>
           仪表盘
         </Typography>
-        <Typography variant="body1" color="text.secondary" paragraph>
+        <Typography level="body-md" sx={{ color: 'text.secondary', mb: 3 }}>
           欢迎回来，{user?.nickname || user?.username}！您当前的角色是{user && getRoleLabel(user.role)}。
         </Typography>
 
         {/* 统计卡片 */}
         {visibleCards.length > 0 && (
-          <Grid container spacing={3} sx={{ mt: 2 }}>
+          <Grid container spacing={3} sx={{ mb: 3 }}>
             {visibleCards.map((card) => (
-              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={card.title}>
-                <Card>
+              <Grid xs={12} sm={6} md={4} key={card.title}>
+                <Card variant="outlined">
                   <CardContent>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <Box>
-                        <Typography color="text.secondary" gutterBottom>
+                        <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
                           {card.title}
                         </Typography>
-                        <Typography variant="h4" fontWeight="medium">
+                        <Typography level="h2">
                           {card.value}
                         </Typography>
                       </Box>
@@ -148,13 +146,13 @@ export default function DashboardPage() {
 
         {/* 普通用户欢迎信息 */}
         {user?.role === UserRole.USER && (
-          <Card sx={{ mt: 3 }}>
+          <Card variant="outlined" sx={{ mb: 3 }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <SecurityIcon sx={{ fontSize: 48, color: 'primary.main' }} />
+                <SecurityIcon sx={{ fontSize: 48, color: 'primary.500' }} />
                 <Box>
-                  <Typography variant="h6">安全提示</Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography level="title-lg">安全提示</Typography>
+                  <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
                     您可以在“个人信息”页面管理您的账户信息和密码。
                     当第三方应用请求访问您的账户时，请仔细核实应用信息后再授权。
                   </Typography>
@@ -165,26 +163,26 @@ export default function DashboardPage() {
         )}
 
         {/* 快速入门 */}
-        <Card sx={{ mt: 3 }}>
+        <Card variant="outlined">
           <CardContent>
-            <Typography variant="h6" gutterBottom>
+            <Typography level="title-lg" sx={{ mb: 2 }}>
               快速入门
             </Typography>
-            <Typography variant="body2" color="text.secondary" paragraph>
+            <Typography level="body-sm" sx={{ color: 'text.secondary', mb: 1 }}>
               统一身份认证平台是一个兼容OAuth 2.0和OpenID Connect (OIDC)协议的企业级单点登录解决方案。
             </Typography>
             {user?.role === UserRole.ADMIN && (
-              <Typography variant="body2" color="text.secondary">
+              <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
                 作为管理员，您可以管理所有用户、创建开发者账户、查看和管理所有接入的应用程序。
               </Typography>
             )}
             {user?.role === UserRole.DEVELOPER && (
-              <Typography variant="body2" color="text.secondary">
+              <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
                 作为开发者，您可以创建和管理自己的应用程序，获取OAuth客户端凭证，实现第三方登录集成。
               </Typography>
             )}
             {user?.role === UserRole.USER && (
-              <Typography variant="body2" color="text.secondary">
+              <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
                 作为普通用户，您可以使用此账户登录已接入的第三方应用程序，无需在每个应用单独注册。
               </Typography>
             )}

@@ -1,9 +1,9 @@
 'use client';
 /**
- * MUI主题Provider
+ * Joy UI 主题 Provider
  */
-import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
+import { CssVarsProvider } from '@mui/joy/styles';
+import CssBaseline from '@mui/joy/CssBaseline';
 import { theme } from '@/lib/theme';
 
 interface ThemeProviderProps {
@@ -12,9 +12,9 @@ interface ThemeProviderProps {
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
   return (
-    <MuiThemeProvider theme={theme}>
+    <CssVarsProvider theme={theme}>
       <CssBaseline />
       {children}
-    </MuiThemeProvider>
+    </CssVarsProvider>
   );
 }

@@ -4,27 +4,24 @@
  */
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import Box from '@mui/material/Box';
-import Drawer from '@mui/material/Drawer';
-import AppBar from '@mui/material/AppBar';
-import Toolbar from '@mui/material/Toolbar';
-import List from '@mui/material/List';
-import Typography from '@mui/material/Typography';
-import Divider from '@mui/material/Divider';
-import IconButton from '@mui/material/IconButton';
-import ListItem from '@mui/material/ListItem';
-import ListItemButton from '@mui/material/ListItemButton';
-import ListItemIcon from '@mui/material/ListItemIcon';
-import ListItemText from '@mui/material/ListItemText';
-import Menu from '@mui/material/Menu';
-import MenuItem from '@mui/material/MenuItem';
-import Avatar from '@mui/material/Avatar';
-import BottomNavigation from '@mui/material/BottomNavigation';
-import BottomNavigationAction from '@mui/material/BottomNavigationAction';
-import Paper from '@mui/material/Paper';
-import Tooltip from '@mui/material/Tooltip';
-import useMediaQuery from '@mui/material/useMediaQuery';
-import { useTheme } from '@mui/material/styles';
+import Box from '@mui/joy/Box';
+import Sheet from '@mui/joy/Sheet';
+import Typography from '@mui/joy/Typography';
+import IconButton from '@mui/joy/IconButton';
+import List from '@mui/joy/List';
+import ListItem from '@mui/joy/ListItem';
+import ListItemButton from '@mui/joy/ListItemButton';
+import ListItemContent from '@mui/joy/ListItemContent';
+import ListItemDecorator from '@mui/joy/ListItemDecorator';
+import Dropdown from '@mui/joy/Dropdown';
+import Menu from '@mui/joy/Menu';
+import MenuButton from '@mui/joy/MenuButton';
+import MenuItem from '@mui/joy/MenuItem';
+import Avatar from '@mui/joy/Avatar';
+import Divider from '@mui/joy/Divider';
+import Drawer from '@mui/joy/Drawer';
+import ModalClose from '@mui/joy/ModalClose';
+import Tooltip from '@mui/joy/Tooltip';
 import MenuIcon from '@mui/icons-material/Menu';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -47,14 +44,14 @@ interface User {
   role: UserRole;
 }
 
-interface MenuItem {
+interface MenuItemType {
   path: string;
   label: string;
   icon: React.ReactNode;
   roles: UserRole[];
 }
 
-const menuItems: MenuItem[] = [
+const menuItems: MenuItemType[] = [
   {
     path: '/dashboard',
     label: '仪表盘',
@@ -88,13 +85,22 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
   const [user, setUser] = useState<User | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(!isMobile);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [drawerOpen, setDrawerOpen] = useState(true);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // 检测移动端
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 900);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // 获取用户信息
   useEffect(() => {
@@ -116,11 +122,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     fetchUser();
   }, [router]);
 
-  // 响应式处理
-  useEffect(() => {
-    setDrawerOpen(!isMobile);
-  }, [isMobile]);
-
   // 过滤用户可见的菜单项
   const visibleMenuItems = menuItems.filter(
     (item) => user && item.roles.includes(user.role)
@@ -136,20 +137,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   };
 
-  // 菜单点击处理
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
-
   // 导航处理
   const handleNavigate = (path: string) => {
     router.push(path);
     if (isMobile) {
-      setDrawerOpen(false);
+      setMobileDrawerOpen(false);
     }
   };
 
@@ -178,161 +170,161 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     return null;
   }
 
-  const drawerContent = (
-    <>
-      <Toolbar
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: drawerOpen && !isMobile ? 'flex-end' : 'center',
-          px: [1],
-        }}
-      >
-        {!isMobile && (
-          <IconButton onClick={() => setDrawerOpen(!drawerOpen)}>
-            {drawerOpen ? <ChevronLeftIcon /> : <MenuIcon />}
-          </IconButton>
-        )}
-      </Toolbar>
-      <Divider />
-      <List>
-        {visibleMenuItems.map((item) => (
-          <ListItem key={item.path} disablePadding sx={{ display: 'block' }}>
-            <Tooltip title={!drawerOpen ? item.label : ''} placement="right">
-              <ListItemButton
-                selected={pathname === item.path}
-                onClick={() => handleNavigate(item.path)}
+  const sidebarContent = (
+    <List
+      size="sm"
+      sx={{
+        gap: 1,
+        '--List-nestedInsetStart': '30px',
+        '--ListItem-radius': '8px',
+      }}
+    >
+      {visibleMenuItems.map((item) => (
+        <ListItem key={item.path}>
+          <Tooltip title={!drawerOpen && !isMobile ? item.label : ''} placement="right">
+            <ListItemButton
+              selected={pathname === item.path}
+              onClick={() => handleNavigate(item.path)}
+              sx={{
+                justifyContent: drawerOpen || isMobile ? 'initial' : 'center',
+              }}
+            >
+              <ListItemDecorator
                 sx={{
-                  minHeight: 48,
-                  justifyContent: drawerOpen ? 'initial' : 'center',
-                  px: 2.5,
+                  minWidth: 0,
+                  mr: drawerOpen || isMobile ? 2 : 0,
                 }}
               >
-                <ListItemIcon
-                  sx={{
-                    minWidth: 0,
-                    mr: drawerOpen ? 3 : 'auto',
-                    justifyContent: 'center',
-                  }}
-                >
-                  {item.icon}
-                </ListItemIcon>
-                <ListItemText
-                  primary={item.label}
-                  sx={{ opacity: drawerOpen ? 1 : 0, display: drawerOpen ? 'block' : 'none' }}
-                />
-              </ListItemButton>
-            </Tooltip>
-          </ListItem>
-        ))}
-      </List>
-    </>
+                {item.icon}
+              </ListItemDecorator>
+              {(drawerOpen || isMobile) && (
+                <ListItemContent>
+                  <Typography level="title-sm">{item.label}</Typography>
+                </ListItemContent>
+              )}
+            </ListItemButton>
+          </Tooltip>
+        </ListItem>
+      ))}
+    </List>
   );
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
       {/* 顶部标题栏 */}
-      <AppBar
-        position="fixed"
+      <Sheet
         sx={{
-          zIndex: (theme) => theme.zIndex.drawer + 1,
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 64,
+          zIndex: 1100,
+          display: 'flex',
+          alignItems: 'center',
+          px: 2,
+          gap: 2,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          bgcolor: 'background.surface',
         }}
       >
-        <Toolbar>
-          {isMobile && (
-            <IconButton
-              color="inherit"
-              edge="start"
-              onClick={() => setDrawerOpen(true)}
-              sx={{ mr: 2 }}
-            >
-              <MenuIcon />
-            </IconButton>
-          )}
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            统一身份认证平台
-          </Typography>
-          <IconButton color="inherit" onClick={handleMenuOpen}>
+        {isMobile ? (
+          <IconButton
+            variant="outlined"
+            color="neutral"
+            onClick={() => setMobileDrawerOpen(true)}
+          >
+            <MenuIcon />
+          </IconButton>
+        ) : (
+          <IconButton
+            variant="outlined"
+            color="neutral"
+            onClick={() => setDrawerOpen(!drawerOpen)}
+          >
+            {drawerOpen ? <ChevronLeftIcon /> : <MenuIcon />}
+          </IconButton>
+        )}
+
+        <Typography level="title-lg" sx={{ flexGrow: 1 }}>
+          统一身份认证平台
+        </Typography>
+
+        <Dropdown>
+          <MenuButton
+            slots={{ root: IconButton }}
+            slotProps={{ root: { variant: 'plain', color: 'neutral' } }}
+          >
             {user.avatar ? (
-              <Avatar src={user.avatar} sx={{ width: 32, height: 32 }} />
+              <Avatar src={user.avatar} size="sm" />
             ) : (
               <AccountCircleIcon />
             )}
-          </IconButton>
-          <Menu
-            anchorEl={anchorEl}
-            open={Boolean(anchorEl)}
-            onClose={handleMenuClose}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-          >
+          </MenuButton>
+          <Menu placement="bottom-end">
             <MenuItem disabled>
-              <Typography variant="body2">
+              <Typography level="body-sm">
                 {user.nickname || user.username}
               </Typography>
             </MenuItem>
             <MenuItem disabled>
-              <Typography variant="caption" color="text.secondary">
+              <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
                 {user.role === UserRole.ADMIN ? '管理员' : 
                  user.role === UserRole.DEVELOPER ? '开发者' : '普通用户'}
               </Typography>
             </MenuItem>
             <Divider />
-            <MenuItem onClick={() => { handleMenuClose(); handleNavigate('/user'); }}>
-              <ListItemIcon>
-                <PersonIcon fontSize="small" />
-              </ListItemIcon>
+            <MenuItem onClick={() => handleNavigate('/user')}>
+              <ListItemDecorator>
+                <PersonIcon />
+              </ListItemDecorator>
               个人信息
             </MenuItem>
-            <MenuItem onClick={handleLogout}>
-              <ListItemIcon>
-                <LogoutIcon fontSize="small" />
-              </ListItemIcon>
+            <MenuItem onClick={handleLogout} color="danger">
+              <ListItemDecorator>
+                <LogoutIcon />
+              </ListItemDecorator>
               退出登录
             </MenuItem>
           </Menu>
-        </Toolbar>
-      </AppBar>
+        </Dropdown>
+      </Sheet>
 
-      {/* 侧边抽屉菜单 - 桌面端 */}
+      {/* 侧边栏 - 桌面端 */}
       {!isMobile && (
-        <Drawer
-          variant="permanent"
+        <Sheet
           sx={{
+            position: 'fixed',
+            top: 64,
+            left: 0,
+            bottom: 0,
             width: drawerOpen ? DRAWER_WIDTH : DRAWER_WIDTH_COLLAPSED,
-            flexShrink: 0,
-            '& .MuiDrawer-paper': {
-              width: drawerOpen ? DRAWER_WIDTH : DRAWER_WIDTH_COLLAPSED,
-              boxSizing: 'border-box',
-              transition: theme.transitions.create('width', {
-                easing: theme.transitions.easing.sharp,
-                duration: theme.transitions.duration.enteringScreen,
-              }),
-              overflowX: 'hidden',
-            },
+            borderRight: '1px solid',
+            borderColor: 'divider',
+            transition: 'width 0.2s',
+            overflow: 'hidden',
+            p: 2,
           }}
         >
-          {drawerContent}
-        </Drawer>
+          {sidebarContent}
+        </Sheet>
       )}
 
-      {/* 侧边抽屉菜单 - 移动端 */}
-      {isMobile && (
-        <Drawer
-          variant="temporary"
-          open={drawerOpen}
-          onClose={() => setDrawerOpen(false)}
-          ModalProps={{ keepMounted: true }}
-          sx={{
-            '& .MuiDrawer-paper': {
-              width: DRAWER_WIDTH,
-              boxSizing: 'border-box',
-            },
-          }}
-        >
-          {drawerContent}
-        </Drawer>
-      )}
+      {/* 侧边抽屉 - 移动端 */}
+      <Drawer
+        open={mobileDrawerOpen}
+        onClose={() => setMobileDrawerOpen(false)}
+        sx={{ display: { xs: 'block', md: 'none' } }}
+      >
+        <Box sx={{ width: DRAWER_WIDTH, p: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Typography level="title-lg">菜单</Typography>
+            <ModalClose />
+          </Box>
+          {sidebarContent}
+        </Box>
+      </Drawer>
 
       {/* 主内容区域 */}
       <Box
@@ -340,9 +332,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         sx={{
           flexGrow: 1,
           p: 3,
-          width: '100%',
-          mt: 8,
-          mb: isMobile ? 7 : 0,
+          mt: '64px',
+          ml: isMobile ? 0 : drawerOpen ? `${DRAWER_WIDTH}px` : `${DRAWER_WIDTH_COLLAPSED}px`,
+          mb: isMobile ? '64px' : 0,
+          transition: 'margin-left 0.2s',
         }}
       >
         {children}
@@ -350,26 +343,41 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* 底部导航 - 仅移动端 */}
       {isMobile && (
-        <Paper
-          sx={{ position: 'fixed', bottom: 0, left: 0, right: 0 }}
-          elevation={3}
+        <Sheet
+          sx={{
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 64,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-around',
+            borderTop: '1px solid',
+            borderColor: 'divider',
+            bgcolor: 'background.surface',
+            zIndex: 1100,
+          }}
         >
-          <BottomNavigation
-            value={getBottomNavValue()}
-            onChange={(_, newValue) => {
-              handleNavigate(visibleMenuItems[newValue].path);
-            }}
-            showLabels
-          >
-            {visibleMenuItems.slice(0, 4).map((item) => (
-              <BottomNavigationAction
-                key={item.path}
-                label={item.label}
-                icon={item.icon}
-              />
-            ))}
-          </BottomNavigation>
-        </Paper>
+          {visibleMenuItems.slice(0, 4).map((item, index) => (
+            <IconButton
+              key={item.path}
+              variant={getBottomNavValue() === index ? 'soft' : 'plain'}
+              color={getBottomNavValue() === index ? 'primary' : 'neutral'}
+              onClick={() => handleNavigate(item.path)}
+              sx={{
+                flexDirection: 'column',
+                gap: 0.5,
+                borderRadius: 'lg',
+                px: 2,
+                py: 1,
+              }}
+            >
+              {item.icon}
+              <Typography level="body-xs">{item.label}</Typography>
+            </IconButton>
+          ))}
+        </Sheet>
       )}
     </Box>
   );

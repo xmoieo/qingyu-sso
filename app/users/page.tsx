@@ -3,28 +3,33 @@
  * 用户管理页面（管理员）
  */
 import { useEffect, useState, useCallback } from 'react';
-import Box from '@mui/material/Box';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import Button from '@mui/material/Button';
-import Typography from '@mui/material/Typography';
-import Alert from '@mui/material/Alert';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
-import TextField from '@mui/material/TextField';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import Select from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
-import IconButton from '@mui/material/IconButton';
-import Chip from '@mui/material/Chip';
-import CircularProgress from '@mui/material/CircularProgress';
-import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import Box from '@mui/joy/Box';
+import Card from '@mui/joy/Card';
+import Button from '@mui/joy/Button';
+import Typography from '@mui/joy/Typography';
+import Alert from '@mui/joy/Alert';
+import Modal from '@mui/joy/Modal';
+import ModalDialog from '@mui/joy/ModalDialog';
+import DialogTitle from '@mui/joy/DialogTitle';
+import DialogContent from '@mui/joy/DialogContent';
+import DialogActions from '@mui/joy/DialogActions';
+import Input from '@mui/joy/Input';
+import FormControl from '@mui/joy/FormControl';
+import FormLabel from '@mui/joy/FormLabel';
+import FormHelperText from '@mui/joy/FormHelperText';
+import Select from '@mui/joy/Select';
+import Option from '@mui/joy/Option';
+import IconButton from '@mui/joy/IconButton';
+import Chip from '@mui/joy/Chip';
+import CircularProgress from '@mui/joy/CircularProgress';
+import Table from '@mui/joy/Table';
+import Sheet from '@mui/joy/Sheet';
+import Stack from '@mui/joy/Stack';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import WarningIcon from '@mui/icons-material/Warning';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { DashboardLayout } from '@/components/layout';
 import { UserRole } from '@/lib/types';
 
@@ -189,74 +194,24 @@ export default function UsersPage() {
     }
   };
 
-  const getRoleColor = (role: UserRole): 'error' | 'warning' | 'default' => {
+  const getRoleColor = (role: UserRole): 'danger' | 'warning' | 'neutral' => {
     switch (role) {
       case UserRole.ADMIN:
-        return 'error';
+        return 'danger';
       case UserRole.DEVELOPER:
         return 'warning';
       default:
-        return 'default';
+        return 'neutral';
     }
   };
-
-  const columns: GridColDef[] = [
-    { field: 'username', headerName: '用户名', flex: 1, minWidth: 120 },
-    { field: 'email', headerName: '邮箱', flex: 1.5, minWidth: 200 },
-    { field: 'nickname', headerName: '昵称', flex: 1, minWidth: 100 },
-    {
-      field: 'role',
-      headerName: '角色',
-      width: 100,
-      renderCell: (params: GridRenderCellParams) => (
-        <Chip
-          label={getRoleLabel(params.value)}
-          size="small"
-          color={getRoleColor(params.value)}
-        />
-      ),
-    },
-    {
-      field: 'createdAt',
-      headerName: '注册时间',
-      width: 120,
-      valueFormatter: (value: string) => new Date(value).toLocaleDateString('zh-CN'),
-    },
-    {
-      field: 'actions',
-      headerName: '操作',
-      width: 120,
-      sortable: false,
-      renderCell: (params: GridRenderCellParams) => (
-        <Box>
-          <IconButton
-            size="small"
-            onClick={() => handleOpenDialog('edit', params.row)}
-          >
-            <EditIcon fontSize="small" />
-          </IconButton>
-          <IconButton
-            size="small"
-            color="error"
-            onClick={() => handleDeleteClick(params.row)}
-          >
-            <DeleteIcon fontSize="small" />
-          </IconButton>
-        </Box>
-      ),
-    },
-  ];
 
   return (
     <DashboardLayout>
       <Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4" fontWeight="medium">
-            用户管理
-          </Typography>
+          <Typography level="h2">用户管理</Typography>
           <Button
-            variant="contained"
-            startIcon={<AddIcon />}
+            startDecorator={<AddIcon />}
             onClick={() => handleOpenDialog('create')}
           >
             创建用户
@@ -264,119 +219,211 @@ export default function UsersPage() {
         </Box>
 
         {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+          <Alert
+            color="danger"
+            variant="soft"
+            startDecorator={<WarningIcon />}
+            sx={{ mb: 2 }}
+            endDecorator={
+              <IconButton variant="soft" color="danger" onClick={() => setError('')}>
+                ×
+              </IconButton>
+            }
+          >
             {error}
           </Alert>
         )}
 
         {success && (
-          <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>
+          <Alert
+            color="success"
+            variant="soft"
+            startDecorator={<CheckCircleIcon />}
+            sx={{ mb: 2 }}
+            endDecorator={
+              <IconButton variant="soft" color="success" onClick={() => setSuccess('')}>
+                ×
+              </IconButton>
+            }
+          >
             {success}
           </Alert>
         )}
 
-        <Card>
-          <CardContent>
-            <DataGrid
-              rows={users}
-              columns={columns}
-              loading={loading}
-              pageSizeOptions={[10, 25, 50]}
-              initialState={{
-                pagination: { paginationModel: { pageSize: 10 } },
-              }}
-              disableRowSelectionOnClick
-              autoHeight
-            />
-          </CardContent>
+        <Card variant="outlined">
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <Sheet sx={{ overflow: 'auto' }}>
+              <Table
+                stickyHeader
+                hoverRow
+                sx={{
+                  '--TableCell-headBackground': 'var(--joy-palette-background-level1)',
+                }}
+              >
+                <thead>
+                  <tr>
+                    <th style={{ width: 150 }}>用户名</th>
+                    <th style={{ width: 200 }}>邮箱</th>
+                    <th style={{ width: 120 }}>昵称</th>
+                    <th style={{ width: 100 }}>角色</th>
+                    <th style={{ width: 120 }}>注册时间</th>
+                    <th style={{ width: 100 }}>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((user) => (
+                    <tr key={user.id}>
+                      <td>{user.username}</td>
+                      <td>{user.email}</td>
+                      <td>{user.nickname || '-'}</td>
+                      <td>
+                        <Chip
+                          size="sm"
+                          variant="soft"
+                          color={getRoleColor(user.role)}
+                        >
+                          {getRoleLabel(user.role)}
+                        </Chip>
+                      </td>
+                      <td>{new Date(user.createdAt).toLocaleDateString('zh-CN')}</td>
+                      <td>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <IconButton
+                            size="sm"
+                            variant="plain"
+                            onClick={() => handleOpenDialog('edit', user)}
+                          >
+                            <EditIcon />
+                          </IconButton>
+                          <IconButton
+                            size="sm"
+                            variant="plain"
+                            color="danger"
+                            onClick={() => handleDeleteClick(user)}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </Box>
+                      </td>
+                    </tr>
+                  ))}
+                  {users.length === 0 && (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: 'center', padding: '24px' }}>
+                        暂无用户数据
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </Table>
+            </Sheet>
+          )}
         </Card>
 
         {/* 创建/编辑对话框 */}
-        <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-          <DialogTitle>
-            {dialogMode === 'create' ? '创建用户' : '编辑用户'}
-          </DialogTitle>
-          <DialogContent>
-            <TextField
-              fullWidth
-              label="用户名"
-              name="username"
-              value={formData.username}
-              onChange={handleFormChange}
-              margin="normal"
-              required
-              disabled={dialogMode === 'edit'}
-              helperText={dialogMode === 'edit' ? '用户名不可修改' : '3-20位字母、数字或下划线'}
-            />
-            <TextField
-              fullWidth
-              label="邮箱"
-              name="email"
-              type="email"
-              value={formData.email}
-              onChange={handleFormChange}
-              margin="normal"
-              required
-            />
-            <TextField
-              fullWidth
-              label="昵称"
-              name="nickname"
-              value={formData.nickname}
-              onChange={handleFormChange}
-              margin="normal"
-            />
-            <TextField
-              fullWidth
-              label={dialogMode === 'create' ? '密码' : '新密码（留空则不修改）'}
-              name="password"
-              type="password"
-              value={formData.password}
-              onChange={handleFormChange}
-              margin="normal"
-              required={dialogMode === 'create'}
-              helperText="至少6位字符"
-            />
-            <FormControl fullWidth margin="normal">
-              <InputLabel>角色</InputLabel>
-              <Select
-                value={formData.role}
-                label="角色"
-                onChange={(e) => setFormData((prev) => ({ ...prev, role: e.target.value as UserRole }))}
+        <Modal open={dialogOpen} onClose={handleCloseDialog}>
+          <ModalDialog>
+            <DialogTitle>
+              {dialogMode === 'create' ? '创建用户' : '编辑用户'}
+            </DialogTitle>
+            <DialogContent>
+              <Stack spacing={2} sx={{ mt: 1 }}>
+                <FormControl required>
+                  <FormLabel>用户名</FormLabel>
+                  <Input
+                    name="username"
+                    value={formData.username}
+                    onChange={handleFormChange}
+                    disabled={dialogMode === 'edit'}
+                  />
+                  <FormHelperText>
+                    {dialogMode === 'edit' ? '用户名不可修改' : '3-20位字母、数字或下划线'}
+                  </FormHelperText>
+                </FormControl>
+
+                <FormControl required>
+                  <FormLabel>邮箱</FormLabel>
+                  <Input
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleFormChange}
+                  />
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>昵称</FormLabel>
+                  <Input
+                    name="nickname"
+                    value={formData.nickname}
+                    onChange={handleFormChange}
+                  />
+                </FormControl>
+
+                <FormControl required={dialogMode === 'create'}>
+                  <FormLabel>
+                    {dialogMode === 'create' ? '密码' : '新密码（留空则不修改）'}
+                  </FormLabel>
+                  <Input
+                    name="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={handleFormChange}
+                  />
+                  <FormHelperText>至少6位字符</FormHelperText>
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>角色</FormLabel>
+                  <Select
+                    value={formData.role}
+                    onChange={(_, value) => value && setFormData((prev) => ({ ...prev, role: value }))}
+                  >
+                    <Option value={UserRole.USER}>普通用户</Option>
+                    <Option value={UserRole.DEVELOPER}>开发者</Option>
+                    <Option value={UserRole.ADMIN}>管理员</Option>
+                  </Select>
+                </FormControl>
+              </Stack>
+            </DialogContent>
+            <DialogActions>
+              <Button variant="plain" color="neutral" onClick={handleCloseDialog}>
+                取消
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                loading={dialogLoading}
               >
-                <MenuItem value={UserRole.USER}>普通用户</MenuItem>
-                <MenuItem value={UserRole.DEVELOPER}>开发者</MenuItem>
-                <MenuItem value={UserRole.ADMIN}>管理员</MenuItem>
-              </Select>
-            </FormControl>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseDialog}>取消</Button>
-            <Button
-              variant="contained"
-              onClick={handleSubmit}
-              disabled={dialogLoading}
-            >
-              {dialogLoading ? <CircularProgress size={24} /> : '确定'}
-            </Button>
-          </DialogActions>
-        </Dialog>
+                确定
+              </Button>
+            </DialogActions>
+          </ModalDialog>
+        </Modal>
 
         {/* 删除确认对话框 */}
-        <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-          <DialogTitle>确认删除</DialogTitle>
-          <DialogContent>
-            <Typography>
-              确定要删除用户 “{userToDelete?.username}” 吗？此操作不可撤销。
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setDeleteDialogOpen(false)}>取消</Button>
-            <Button variant="contained" color="error" onClick={handleDeleteConfirm}>
-              删除
-            </Button>
-          </DialogActions>
-        </Dialog>
+        <Modal open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+          <ModalDialog variant="outlined" role="alertdialog">
+            <DialogTitle>
+              <WarningIcon />
+              确认删除
+            </DialogTitle>
+            <DialogContent>
+              确定要删除用户 &quot;{userToDelete?.username}&quot; 吗？此操作不可撤销。
+            </DialogContent>
+            <DialogActions>
+              <Button variant="plain" color="neutral" onClick={() => setDeleteDialogOpen(false)}>
+                取消
+              </Button>
+              <Button color="danger" onClick={handleDeleteConfirm}>
+                删除
+              </Button>
+            </DialogActions>
+          </ModalDialog>
+        </Modal>
       </Box>
     </DashboardLayout>
   );

@@ -3,21 +3,27 @@
  * 个人信息页面
  */
 import { useEffect, useState } from 'react';
-import Box from '@mui/material/Box';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import TextField from '@mui/material/TextField';
-import Button from '@mui/material/Button';
-import Typography from '@mui/material/Typography';
-import Alert from '@mui/material/Alert';
-import CircularProgress from '@mui/material/CircularProgress';
-import Divider from '@mui/material/Divider';
-import Avatar from '@mui/material/Avatar';
-import Grid from '@mui/material/Grid';
-import InputAdornment from '@mui/material/InputAdornment';
-import IconButton from '@mui/material/IconButton';
+import Box from '@mui/joy/Box';
+import Card from '@mui/joy/Card';
+import CardContent from '@mui/joy/CardContent';
+import Input from '@mui/joy/Input';
+import Button from '@mui/joy/Button';
+import Typography from '@mui/joy/Typography';
+import Alert from '@mui/joy/Alert';
+import CircularProgress from '@mui/joy/CircularProgress';
+import Divider from '@mui/joy/Divider';
+import Avatar from '@mui/joy/Avatar';
+import Grid from '@mui/joy/Grid';
+import IconButton from '@mui/joy/IconButton';
+import FormControl from '@mui/joy/FormControl';
+import FormLabel from '@mui/joy/FormLabel';
+import FormHelperText from '@mui/joy/FormHelperText';
+import Stack from '@mui/joy/Stack';
+import Chip from '@mui/joy/Chip';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import WarningIcon from '@mui/icons-material/Warning';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { DashboardLayout } from '@/components/layout';
 import { UserRole } from '@/lib/types';
 
@@ -75,20 +81,6 @@ export default function UserProfilePage() {
     };
     fetchUser();
   }, []);
-
-  const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setProfileData((prev) => ({ ...prev, [name]: value }));
-    setError('');
-    setSuccess('');
-  };
-
-  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setPasswordData((prev) => ({ ...prev, [name]: value }));
-    setPasswordError('');
-    setPasswordSuccess('');
-  };
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -178,6 +170,17 @@ export default function UserProfilePage() {
     }
   };
 
+  const getRoleColor = (role: UserRole): 'danger' | 'warning' | 'neutral' => {
+    switch (role) {
+      case UserRole.ADMIN:
+        return 'danger';
+      case UserRole.DEVELOPER:
+        return 'warning';
+      default:
+        return 'neutral';
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -191,44 +194,39 @@ export default function UserProfilePage() {
   return (
     <DashboardLayout>
       <Box>
-        <Typography variant="h4" gutterBottom fontWeight="medium">
+        <Typography level="h2" sx={{ mb: 3 }}>
           个人信息
         </Typography>
 
         <Grid container spacing={3}>
           {/* 用户信息卡片 */}
-          <Grid size={{ xs: 12, md: 4 }}>
-            <Card>
+          <Grid xs={12} md={4}>
+            <Card variant="outlined">
               <CardContent sx={{ textAlign: 'center', py: 4 }}>
                 <Avatar
                   src={user?.avatar}
-                  sx={{ width: 80, height: 80, mx: 'auto', mb: 2, bgcolor: 'primary.main', fontSize: 32 }}
+                  sx={{ width: 80, height: 80, mx: 'auto', mb: 2, fontSize: 32 }}
                 >
                   {user?.nickname?.[0] || user?.username?.[0] || '?'}
                 </Avatar>
-                <Typography variant="h6">{user?.nickname || user?.username}</Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography level="title-lg">{user?.nickname || user?.username}</Typography>
+                <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
                   @{user?.username}
                 </Typography>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    display: 'inline-block',
-                    mt: 1,
-                    px: 1.5,
-                    py: 0.5,
-                    bgcolor: 'primary.main',
-                    color: 'white',
-                    borderRadius: 1,
-                  }}
-                >
-                  {user && getRoleLabel(user.role)}
-                </Typography>
+                <Box sx={{ mt: 1 }}>
+                  <Chip
+                    size="sm"
+                    variant="soft"
+                    color={user ? getRoleColor(user.role) : 'neutral'}
+                  >
+                    {user && getRoleLabel(user.role)}
+                  </Chip>
+                </Box>
                 <Divider sx={{ my: 2 }} />
-                <Typography variant="body2" color="text.secondary">
+                <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
                   注册时间
                 </Typography>
-                <Typography variant="body2">
+                <Typography level="body-sm">
                   {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('zh-CN') : '-'}
                 </Typography>
               </CardContent>
@@ -236,140 +234,138 @@ export default function UserProfilePage() {
           </Grid>
 
           {/* 编辑表单 */}
-          <Grid size={{ xs: 12, md: 8 }}>
+          <Grid xs={12} md={8}>
             {/* 基本信息 */}
-            <Card sx={{ mb: 3 }}>
+            <Card variant="outlined" sx={{ mb: 3 }}>
               <CardContent>
-                <Typography variant="h6" gutterBottom>
+                <Typography level="title-lg" sx={{ mb: 2 }}>
                   基本信息
                 </Typography>
 
                 {error && (
-                  <Alert severity="error" sx={{ mb: 2 }}>
+                  <Alert
+                    color="danger"
+                    variant="soft"
+                    startDecorator={<WarningIcon />}
+                    sx={{ mb: 2 }}
+                  >
                     {error}
                   </Alert>
                 )}
 
                 {success && (
-                  <Alert severity="success" sx={{ mb: 2 }}>
+                  <Alert
+                    color="success"
+                    variant="soft"
+                    startDecorator={<CheckCircleIcon />}
+                    sx={{ mb: 2 }}
+                  >
                     {success}
                   </Alert>
                 )}
 
-                <Box component="form" onSubmit={handleProfileSubmit}>
-                  <TextField
-                    fullWidth
-                    label="用户名"
-                    value={user?.username || ''}
-                    margin="normal"
-                    disabled
-                    helperText="用户名不可修改"
-                  />
-                  <TextField
-                    fullWidth
-                    label="昵称"
-                    name="nickname"
-                    value={profileData.nickname}
-                    onChange={handleProfileChange}
-                    margin="normal"
-                  />
-                  <TextField
-                    fullWidth
-                    label="邮箱"
-                    name="email"
-                    type="email"
-                    value={profileData.email}
-                    onChange={handleProfileChange}
-                    margin="normal"
-                    required
-                  />
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    disabled={saving}
-                    sx={{ mt: 2 }}
-                  >
-                    {saving ? <CircularProgress size={24} /> : '保存修改'}
-                  </Button>
-                </Box>
+                <form onSubmit={handleProfileSubmit}>
+                  <Stack spacing={2}>
+                    <FormControl>
+                      <FormLabel>用户名</FormLabel>
+                      <Input value={user?.username || ''} disabled />
+                      <FormHelperText>用户名不可修改</FormHelperText>
+                    </FormControl>
+
+                    <FormControl>
+                      <FormLabel>昵称</FormLabel>
+                      <Input
+                        value={profileData.nickname}
+                        onChange={(e) => setProfileData((prev) => ({ ...prev, nickname: e.target.value }))}
+                      />
+                    </FormControl>
+
+                    <FormControl required>
+                      <FormLabel>邮箱</FormLabel>
+                      <Input
+                        type="email"
+                        value={profileData.email}
+                        onChange={(e) => setProfileData((prev) => ({ ...prev, email: e.target.value }))}
+                      />
+                    </FormControl>
+
+                    <Button type="submit" loading={saving}>
+                      保存修改
+                    </Button>
+                  </Stack>
+                </form>
               </CardContent>
             </Card>
 
             {/* 修改密码 */}
-            <Card>
+            <Card variant="outlined">
               <CardContent>
-                <Typography variant="h6" gutterBottom>
+                <Typography level="title-lg" sx={{ mb: 2 }}>
                   修改密码
                 </Typography>
 
                 {passwordError && (
-                  <Alert severity="error" sx={{ mb: 2 }}>
+                  <Alert
+                    color="danger"
+                    variant="soft"
+                    startDecorator={<WarningIcon />}
+                    sx={{ mb: 2 }}
+                  >
                     {passwordError}
                   </Alert>
                 )}
 
                 {passwordSuccess && (
-                  <Alert severity="success" sx={{ mb: 2 }}>
+                  <Alert
+                    color="success"
+                    variant="soft"
+                    startDecorator={<CheckCircleIcon />}
+                    sx={{ mb: 2 }}
+                  >
                     {passwordSuccess}
                   </Alert>
                 )}
 
-                <Box component="form" onSubmit={handlePasswordSubmit}>
-                  <TextField
-                    fullWidth
-                    label="当前密码"
-                    name="currentPassword"
-                    type={showPassword ? 'text' : 'password'}
-                    value={passwordData.currentPassword}
-                    onChange={handlePasswordChange}
-                    margin="normal"
-                    required
-                    slotProps={{
-                      input: {
-                        endAdornment: (
-                          <InputAdornment position="end">
-                            <IconButton
-                              onClick={() => setShowPassword(!showPassword)}
-                              edge="end"
-                            >
-                              {showPassword ? <VisibilityOff /> : <Visibility />}
-                            </IconButton>
-                          </InputAdornment>
-                        ),
-                      },
-                    }}
-                  />
-                  <TextField
-                    fullWidth
-                    label="新密码"
-                    name="newPassword"
-                    type={showPassword ? 'text' : 'password'}
-                    value={passwordData.newPassword}
-                    onChange={handlePasswordChange}
-                    margin="normal"
-                    required
-                    helperText="至少6位字符"
-                  />
-                  <TextField
-                    fullWidth
-                    label="确认新密码"
-                    name="confirmPassword"
-                    type={showPassword ? 'text' : 'password'}
-                    value={passwordData.confirmPassword}
-                    onChange={handlePasswordChange}
-                    margin="normal"
-                    required
-                  />
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    color="warning"
-                    disabled={passwordSaving}
-                    sx={{ mt: 2 }}
-                  >
-                    {passwordSaving ? <CircularProgress size={24} /> : '修改密码'}
-                  </Button>
-                </Box>
+                <form onSubmit={handlePasswordSubmit}>
+                  <Stack spacing={2}>
+                    <FormControl required>
+                      <FormLabel>当前密码</FormLabel>
+                      <Input
+                        type={showPassword ? 'text' : 'password'}
+                        value={passwordData.currentPassword}
+                        onChange={(e) => setPasswordData((prev) => ({ ...prev, currentPassword: e.target.value }))}
+                        endDecorator={
+                          <IconButton variant="plain" onClick={() => setShowPassword(!showPassword)}>
+                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        }
+                      />
+                    </FormControl>
+
+                    <FormControl required>
+                      <FormLabel>新密码</FormLabel>
+                      <Input
+                        type={showPassword ? 'text' : 'password'}
+                        value={passwordData.newPassword}
+                        onChange={(e) => setPasswordData((prev) => ({ ...prev, newPassword: e.target.value }))}
+                      />
+                      <FormHelperText>至少6位字符</FormHelperText>
+                    </FormControl>
+
+                    <FormControl required>
+                      <FormLabel>确认新密码</FormLabel>
+                      <Input
+                        type={showPassword ? 'text' : 'password'}
+                        value={passwordData.confirmPassword}
+                        onChange={(e) => setPasswordData((prev) => ({ ...prev, confirmPassword: e.target.value }))}
+                      />
+                    </FormControl>
+
+                    <Button type="submit" color="warning" loading={passwordSaving}>
+                      修改密码
+                    </Button>
+                  </Stack>
+                </form>
               </CardContent>
             </Card>
           </Grid>

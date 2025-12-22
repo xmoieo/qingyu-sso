@@ -5,20 +5,22 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import Box from '@mui/material/Box';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import TextField from '@mui/material/TextField';
-import Button from '@mui/material/Button';
-import Typography from '@mui/material/Typography';
-import Alert from '@mui/material/Alert';
-import CircularProgress from '@mui/material/CircularProgress';
-import InputAdornment from '@mui/material/InputAdornment';
-import IconButton from '@mui/material/IconButton';
+import Box from '@mui/joy/Box';
+import Card from '@mui/joy/Card';
+import Input from '@mui/joy/Input';
+import Button from '@mui/joy/Button';
+import Typography from '@mui/joy/Typography';
+import Alert from '@mui/joy/Alert';
+import CircularProgress from '@mui/joy/CircularProgress';
+import IconButton from '@mui/joy/IconButton';
+import FormControl from '@mui/joy/FormControl';
+import FormLabel from '@mui/joy/FormLabel';
+import Avatar from '@mui/joy/Avatar';
+import Stack from '@mui/joy/Stack';
+import LockIcon from '@mui/icons-material/Lock';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
-import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
-import Avatar from '@mui/material/Avatar';
+import WarningIcon from '@mui/icons-material/Warning';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -54,7 +56,6 @@ export default function LoginPage() {
       const result = await response.json();
 
       if (result.success) {
-        // 如果有重定向URL，跳转到该URL
         if (redirectUrl) {
           window.location.href = redirectUrl;
         } else {
@@ -75,7 +76,7 @@ export default function LoginPage() {
       sx={{
         minHeight: '100vh',
         display: 'flex',
-        bgcolor: 'background.default',
+        bgcolor: 'background.surface',
       }}
     >
       {/* 左侧图片区域 - 仅桌面端显示 */}
@@ -83,7 +84,7 @@ export default function LoginPage() {
         sx={{
           display: { xs: 'none', md: 'flex' },
           flex: 1,
-          bgcolor: 'primary.main',
+          bgcolor: 'primary.500',
           alignItems: 'center',
           justifyContent: 'center',
           flexDirection: 'column',
@@ -91,23 +92,12 @@ export default function LoginPage() {
           p: 4,
         }}
       >
-        <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
+        <Typography level="h1" sx={{ color: 'white', fontWeight: 'bold', mb: 2 }}>
           统一身份认证平台
         </Typography>
-        <Typography variant="h6" sx={{ opacity: 0.9, textAlign: 'center', maxWidth: 400 }}>
+        <Typography level="body-lg" sx={{ color: 'white', opacity: 0.9, textAlign: 'center', maxWidth: 400 }}>
           安全、便捷的企业级单点登录解决方案
         </Typography>
-        <Box
-          component="img"
-          src="/login-illustration.svg"
-          alt="登录插图"
-          sx={{
-            mt: 4,
-            maxWidth: 400,
-            width: '80%',
-            display: 'none', // 如果没有图片则隐藏
-          }}
-        />
       </Box>
 
       {/* 右侧登录表单 */}
@@ -120,83 +110,80 @@ export default function LoginPage() {
           p: 3,
         }}
       >
-        <Card sx={{ width: '100%', maxWidth: 400, boxShadow: 3 }}>
-          <CardContent sx={{ p: 4 }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
-              <Avatar sx={{ bgcolor: 'primary.main', width: 56, height: 56, mb: 2 }}>
-                <LockOutlinedIcon fontSize="large" />
-              </Avatar>
-              <Typography component="h1" variant="h5" fontWeight="medium">
-                登录
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+        <Card variant="outlined" sx={{ width: '100%', maxWidth: 400, p: 4 }}>
+          <Stack spacing={3} alignItems="center" sx={{ mb: 3 }}>
+            <Avatar sx={{ bgcolor: 'primary.500', width: 56, height: 56 }}>
+              <LockIcon sx={{ fontSize: 32 }} />
+            </Avatar>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography level="h3">登录</Typography>
+              <Typography level="body-sm" sx={{ color: 'text.secondary', mt: 1 }}>
                 欢迎回来，请登录您的账户
               </Typography>
             </Box>
+          </Stack>
 
-            {error && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {error}
-              </Alert>
-            )}
+          {error && (
+            <Alert
+              color="danger"
+              variant="soft"
+              startDecorator={<WarningIcon />}
+              sx={{ mb: 2 }}
+            >
+              {error}
+            </Alert>
+          )}
 
-            <Box component="form" onSubmit={handleSubmit}>
-              <TextField
-                fullWidth
-                label="用户名 / 邮箱"
-                name="username"
-                value={formData.username}
-                onChange={handleChange}
-                margin="normal"
-                required
-                autoComplete="username"
-                autoFocus
-              />
-              <TextField
-                fullWidth
-                label="密码"
-                name="password"
-                type={showPassword ? 'text' : 'password'}
-                value={formData.password}
-                onChange={handleChange}
-                margin="normal"
-                required
-                autoComplete="current-password"
-                slotProps={{
-                  input: {
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          onClick={() => setShowPassword(!showPassword)}
-                          edge="end"
-                        >
-                          {showPassword ? <VisibilityOff /> : <Visibility />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
+          <form onSubmit={handleSubmit}>
+            <Stack spacing={2}>
+              <FormControl required>
+                <FormLabel>用户名 / 邮箱</FormLabel>
+                <Input
+                  name="username"
+                  value={formData.username}
+                  onChange={handleChange}
+                  autoComplete="username"
+                  autoFocus
+                />
+              </FormControl>
+
+              <FormControl required>
+                <FormLabel>密码</FormLabel>
+                <Input
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={formData.password}
+                  onChange={handleChange}
+                  autoComplete="current-password"
+                  endDecorator={
+                    <IconButton
+                      variant="plain"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  }
+                />
+              </FormControl>
+
               <Button
                 type="submit"
                 fullWidth
-                variant="contained"
-                size="large"
-                disabled={loading}
-                sx={{ mt: 3, mb: 2, py: 1.5 }}
+                loading={loading}
+                loadingIndicator={<CircularProgress size="sm" />}
+                sx={{ mt: 2 }}
               >
-                {loading ? <CircularProgress size={24} color="inherit" /> : '登录'}
+                登录
               </Button>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="body2" color="text.secondary">
-                  还没有账户？{' '}
-                  <Link href="/register" style={{ color: '#1976d2', fontWeight: 500 }}>
-                    立即注册
-                  </Link>
-                </Typography>
-              </Box>
-            </Box>
-          </CardContent>
+
+              <Typography level="body-sm" sx={{ textAlign: 'center', color: 'text.secondary' }}>
+                还没有账户？{' '}
+                <Link href="/register" style={{ color: 'var(--joy-palette-primary-500)', fontWeight: 500, textDecoration: 'none' }}>
+                  立即注册
+                </Link>
+              </Typography>
+            </Stack>
+          </form>
         </Card>
       </Box>
     </Box>

@@ -5,20 +5,24 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Box from '@mui/material/Box';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import TextField from '@mui/material/TextField';
-import Button from '@mui/material/Button';
-import Typography from '@mui/material/Typography';
-import Alert from '@mui/material/Alert';
-import CircularProgress from '@mui/material/CircularProgress';
-import InputAdornment from '@mui/material/InputAdornment';
-import IconButton from '@mui/material/IconButton';
+import Box from '@mui/joy/Box';
+import Card from '@mui/joy/Card';
+import Input from '@mui/joy/Input';
+import Button from '@mui/joy/Button';
+import Typography from '@mui/joy/Typography';
+import Alert from '@mui/joy/Alert';
+import CircularProgress from '@mui/joy/CircularProgress';
+import IconButton from '@mui/joy/IconButton';
+import FormControl from '@mui/joy/FormControl';
+import FormLabel from '@mui/joy/FormLabel';
+import FormHelperText from '@mui/joy/FormHelperText';
+import Avatar from '@mui/joy/Avatar';
+import Stack from '@mui/joy/Stack';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
-import PersonAddOutlinedIcon from '@mui/icons-material/PersonAddOutlined';
-import Avatar from '@mui/material/Avatar';
+import WarningIcon from '@mui/icons-material/Warning';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -46,7 +50,6 @@ export default function RegisterPage() {
     setError('');
     setSuccess('');
 
-    // 前端验证
     if (formData.password !== formData.confirmPassword) {
       setError('两次输入的密码不一致');
       setLoading(false);
@@ -93,7 +96,7 @@ export default function RegisterPage() {
       sx={{
         minHeight: '100vh',
         display: 'flex',
-        bgcolor: 'background.default',
+        bgcolor: 'background.surface',
       }}
     >
       {/* 左侧图片区域 - 仅桌面端显示 */}
@@ -101,7 +104,7 @@ export default function RegisterPage() {
         sx={{
           display: { xs: 'none', md: 'flex' },
           flex: 1,
-          bgcolor: 'primary.main',
+          bgcolor: 'primary.500',
           alignItems: 'center',
           justifyContent: 'center',
           flexDirection: 'column',
@@ -109,10 +112,10 @@ export default function RegisterPage() {
           p: 4,
         }}
       >
-        <Typography variant="h3" component="h1" gutterBottom fontWeight="bold">
+        <Typography level="h1" sx={{ color: 'white', fontWeight: 'bold', mb: 2 }}>
           统一身份认证平台
         </Typography>
-        <Typography variant="h6" sx={{ opacity: 0.9, textAlign: 'center', maxWidth: 400 }}>
+        <Typography level="body-lg" sx={{ color: 'white', opacity: 0.9, textAlign: 'center', maxWidth: 400 }}>
           安全、便捷的企业级单点登录解决方案
         </Typography>
       </Box>
@@ -125,124 +128,128 @@ export default function RegisterPage() {
           alignItems: 'center',
           justifyContent: 'center',
           p: 3,
+          overflow: 'auto',
         }}
       >
-        <Card sx={{ width: '100%', maxWidth: 400, boxShadow: 3 }}>
-          <CardContent sx={{ p: 4 }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
-              <Avatar sx={{ bgcolor: 'primary.main', width: 56, height: 56, mb: 2 }}>
-                <PersonAddOutlinedIcon fontSize="large" />
-              </Avatar>
-              <Typography component="h1" variant="h5" fontWeight="medium">
-                注册
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+        <Card variant="outlined" sx={{ width: '100%', maxWidth: 400, p: 4, my: 2 }}>
+          <Stack spacing={3} alignItems="center" sx={{ mb: 3 }}>
+            <Avatar sx={{ bgcolor: 'primary.500', width: 56, height: 56 }}>
+              <PersonAddIcon sx={{ fontSize: 32 }} />
+            </Avatar>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography level="h3">注册</Typography>
+              <Typography level="body-sm" sx={{ color: 'text.secondary', mt: 1 }}>
                 创建您的账户
               </Typography>
             </Box>
+          </Stack>
 
-            {error && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {error}
-              </Alert>
-            )}
+          {error && (
+            <Alert
+              color="danger"
+              variant="soft"
+              startDecorator={<WarningIcon />}
+              sx={{ mb: 2 }}
+            >
+              {error}
+            </Alert>
+          )}
 
-            {success && (
-              <Alert severity="success" sx={{ mb: 2 }}>
-                {success}
-              </Alert>
-            )}
+          {success && (
+            <Alert
+              color="success"
+              variant="soft"
+              startDecorator={<CheckCircleIcon />}
+              sx={{ mb: 2 }}
+            >
+              {success}
+            </Alert>
+          )}
 
-            <Box component="form" onSubmit={handleSubmit}>
-              <TextField
-                fullWidth
-                label="用户名"
-                name="username"
-                value={formData.username}
-                onChange={handleChange}
-                margin="normal"
-                required
-                autoComplete="username"
-                autoFocus
-                helperText="3-20位字母、数字或下划线"
-              />
-              <TextField
-                fullWidth
-                label="邮箱"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                margin="normal"
-                required
-                autoComplete="email"
-              />
-              <TextField
-                fullWidth
-                label="昵称"
-                name="nickname"
-                value={formData.nickname}
-                onChange={handleChange}
-                margin="normal"
-                autoComplete="name"
-              />
-              <TextField
-                fullWidth
-                label="密码"
-                name="password"
-                type={showPassword ? 'text' : 'password'}
-                value={formData.password}
-                onChange={handleChange}
-                margin="normal"
-                required
-                autoComplete="new-password"
-                helperText="至少6位字符"
-                slotProps={{
-                  input: {
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          onClick={() => setShowPassword(!showPassword)}
-                          edge="end"
-                        >
-                          {showPassword ? <VisibilityOff /> : <Visibility />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-              <TextField
-                fullWidth
-                label="确认密码"
-                name="confirmPassword"
-                type={showPassword ? 'text' : 'password'}
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                margin="normal"
-                required
-                autoComplete="new-password"
-              />
+          <form onSubmit={handleSubmit}>
+            <Stack spacing={2}>
+              <FormControl required>
+                <FormLabel>用户名</FormLabel>
+                <Input
+                  name="username"
+                  value={formData.username}
+                  onChange={handleChange}
+                  autoComplete="username"
+                  autoFocus
+                />
+                <FormHelperText>3-20位字母、数字或下划线</FormHelperText>
+              </FormControl>
+
+              <FormControl required>
+                <FormLabel>邮箱</FormLabel>
+                <Input
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  autoComplete="email"
+                />
+              </FormControl>
+
+              <FormControl>
+                <FormLabel>昵称</FormLabel>
+                <Input
+                  name="nickname"
+                  value={formData.nickname}
+                  onChange={handleChange}
+                  autoComplete="name"
+                />
+              </FormControl>
+
+              <FormControl required>
+                <FormLabel>密码</FormLabel>
+                <Input
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={formData.password}
+                  onChange={handleChange}
+                  autoComplete="new-password"
+                  endDecorator={
+                    <IconButton
+                      variant="plain"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  }
+                />
+                <FormHelperText>至少6位字符</FormHelperText>
+              </FormControl>
+
+              <FormControl required>
+                <FormLabel>确认密码</FormLabel>
+                <Input
+                  name="confirmPassword"
+                  type={showPassword ? 'text' : 'password'}
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  autoComplete="new-password"
+                />
+              </FormControl>
+
               <Button
                 type="submit"
                 fullWidth
-                variant="contained"
-                size="large"
-                disabled={loading}
-                sx={{ mt: 3, mb: 2, py: 1.5 }}
+                loading={loading}
+                loadingIndicator={<CircularProgress size="sm" />}
+                sx={{ mt: 2 }}
               >
-                {loading ? <CircularProgress size={24} color="inherit" /> : '注册'}
+                注册
               </Button>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="body2" color="text.secondary">
-                  已有账户？{' '}
-                  <Link href="/login" style={{ color: '#1976d2', fontWeight: 500 }}>
-                    立即登录
-                  </Link>
-                </Typography>
-              </Box>
-            </Box>
-          </CardContent>
+
+              <Typography level="body-sm" sx={{ textAlign: 'center', color: 'text.secondary' }}>
+                已有账户？{' '}
+                <Link href="/login" style={{ color: 'var(--joy-palette-primary-500)', fontWeight: 500, textDecoration: 'none' }}>
+                  立即登录
+                </Link>
+              </Typography>
+            </Stack>
+          </form>
         </Card>
       </Box>
     </Box>

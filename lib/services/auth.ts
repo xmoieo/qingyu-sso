@@ -2,12 +2,12 @@
  * 认证服务 - 处理登录、会话、JWT等
  */
 import { v4 as uuidv4 } from 'uuid';
-import jwt from 'jsonwebtoken';
+import jwt, { Secret, SignOptions } from 'jsonwebtoken';
 import { getDatabase, User, Session } from '../db';
 import { userService } from './user';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-change-in-production';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+const JWT_SECRET: Secret = process.env.JWT_SECRET || 'default-secret-change-in-production';
+const JWT_EXPIRES_IN: SignOptions['expiresIn'] = (process.env.JWT_EXPIRES_IN || '7d') as SignOptions['expiresIn'];
 
 export interface TokenPayload {
   userId: string;
@@ -116,7 +116,8 @@ export const authService = {
 
   // 生成JWT
   generateToken(payload: TokenPayload): string {
-    return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+    const options: SignOptions = { expiresIn: JWT_EXPIRES_IN };
+    return jwt.sign(payload, JWT_SECRET, options);
   },
 
   // 验证JWT

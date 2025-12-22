@@ -4,25 +4,27 @@
  */
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Box from '@mui/material/Box';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import Button from '@mui/material/Button';
-import Typography from '@mui/material/Typography';
-import Alert from '@mui/material/Alert';
-import CircularProgress from '@mui/material/CircularProgress';
-import Divider from '@mui/material/Divider';
-import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
-import ListItemIcon from '@mui/material/ListItemIcon';
-import ListItemText from '@mui/material/ListItemText';
-import Avatar from '@mui/material/Avatar';
+import Box from '@mui/joy/Box';
+import Card from '@mui/joy/Card';
+import CardContent from '@mui/joy/CardContent';
+import Button from '@mui/joy/Button';
+import Typography from '@mui/joy/Typography';
+import Alert from '@mui/joy/Alert';
+import CircularProgress from '@mui/joy/CircularProgress';
+import Divider from '@mui/joy/Divider';
+import List from '@mui/joy/List';
+import ListItem from '@mui/joy/ListItem';
+import ListItemDecorator from '@mui/joy/ListItemDecorator';
+import ListItemContent from '@mui/joy/ListItemContent';
+import Avatar from '@mui/joy/Avatar';
+import Stack from '@mui/joy/Stack';
 import CheckIcon from '@mui/icons-material/Check';
 import AppsIcon from '@mui/icons-material/Apps';
 import PersonIcon from '@mui/icons-material/Person';
 import EmailIcon from '@mui/icons-material/Email';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import LockIcon from '@mui/icons-material/Lock';
+import WarningIcon from '@mui/icons-material/Warning';
 
 interface Application {
   id: string;
@@ -128,7 +130,6 @@ export default function AuthorizePage() {
       const result = await response.json();
 
       if (result.success) {
-        // 重定向到回调URL
         window.location.href = result.data.redirectUrl;
       } else {
         setError(result.error || '授权失败');
@@ -158,7 +159,7 @@ export default function AuthorizePage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          bgcolor: 'background.default',
+          bgcolor: 'background.surface',
         }}
       >
         <CircularProgress />
@@ -174,15 +175,18 @@ export default function AuthorizePage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          bgcolor: 'background.default',
+          bgcolor: 'background.surface',
           p: 3,
         }}
       >
-        <Card sx={{ maxWidth: 400, width: '100%' }}>
+        <Card variant="outlined" sx={{ maxWidth: 400, width: '100%' }}>
           <CardContent sx={{ textAlign: 'center', py: 4 }}>
-            <Alert severity="error">{error}</Alert>
+            <Alert color="danger" variant="soft" startDecorator={<WarningIcon />}>
+              {error}
+            </Alert>
             <Button
               variant="outlined"
+              color="neutral"
               onClick={() => router.push('/dashboard')}
               sx={{ mt: 3 }}
             >
@@ -201,47 +205,49 @@ export default function AuthorizePage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        bgcolor: 'background.default',
+        bgcolor: 'background.surface',
         p: 3,
       }}
     >
-      <Card sx={{ maxWidth: 450, width: '100%', boxShadow: 3 }}>
+      <Card variant="outlined" sx={{ maxWidth: 450, width: '100%' }}>
         <CardContent sx={{ p: 4 }}>
           {/* 头部 */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
-            <Avatar sx={{ bgcolor: 'primary.main', width: 64, height: 64, mb: 2 }}>
-              <AppsIcon fontSize="large" />
+          <Stack alignItems="center" spacing={2} sx={{ mb: 3 }}>
+            <Avatar sx={{ width: 64, height: 64 }}>
+              <AppsIcon sx={{ fontSize: 36 }} />
             </Avatar>
-            <Typography variant="h5" fontWeight="medium" gutterBottom>
-              授权请求
-            </Typography>
-            <Typography variant="body1" fontWeight="medium" color="primary.main">
-              {application?.name}
-            </Typography>
-            {application?.description && (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
-                {application.description}
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography level="h3">授权请求</Typography>
+              <Typography level="title-lg" sx={{ color: 'primary.500', mt: 1 }}>
+                {application?.name}
               </Typography>
-            )}
-          </Box>
+              {application?.description && (
+                <Typography level="body-sm" sx={{ color: 'text.secondary', mt: 1 }}>
+                  {application.description}
+                </Typography>
+              )}
+            </Box>
+          </Stack>
 
           <Divider sx={{ my: 2 }} />
 
           {/* 权限列表 */}
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+          <Typography level="body-sm" sx={{ color: 'text.secondary', mb: 1 }}>
             该应用请求获取以下权限：
           </Typography>
 
-          <List dense>
+          <List size="sm">
             {scopes.map((scopeInfo) => (
               <ListItem key={scopeInfo.scope}>
-                <ListItemIcon sx={{ minWidth: 40 }}>
+                <ListItemDecorator>
                   {scopeInfo.icon}
-                </ListItemIcon>
-                <ListItemText
-                  primary={scopeInfo.label}
-                  secondary={scopeInfo.description}
-                />
+                </ListItemDecorator>
+                <ListItemContent>
+                  <Typography level="title-sm">{scopeInfo.label}</Typography>
+                  <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
+                    {scopeInfo.description}
+                  </Typography>
+                </ListItemContent>
               </ListItem>
             ))}
           </List>
@@ -249,7 +255,7 @@ export default function AuthorizePage() {
           <Divider sx={{ my: 2 }} />
 
           {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
+            <Alert color="danger" variant="soft" startDecorator={<WarningIcon />} sx={{ mb: 2 }}>
               {error}
             </Alert>
           )}
@@ -259,8 +265,7 @@ export default function AuthorizePage() {
             <Button
               fullWidth
               variant="outlined"
-              color="inherit"
-              size="large"
+              color="neutral"
               disabled={submitting}
               onClick={() => handleAuthorize(false)}
             >
@@ -268,19 +273,17 @@ export default function AuthorizePage() {
             </Button>
             <Button
               fullWidth
-              variant="contained"
-              size="large"
               disabled={submitting}
+              loading={submitting}
               onClick={() => handleAuthorize(true)}
             >
-              {submitting ? <CircularProgress size={24} color="inherit" /> : '同意'}
+              同意
             </Button>
           </Box>
 
           <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ display: 'block', mt: 2, textAlign: 'center' }}
+            level="body-xs"
+            sx={{ display: 'block', mt: 2, textAlign: 'center', color: 'text.tertiary' }}
           >
             授权后，该应用将能够按照所选权限访问您的账户信息
           </Typography>

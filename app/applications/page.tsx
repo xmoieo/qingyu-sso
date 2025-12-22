@@ -3,24 +3,30 @@
  * 应用管理页面（管理员/开发者）
  */
 import { useEffect, useState, useCallback } from 'react';
-import Box from '@mui/material/Box';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import CardActions from '@mui/material/CardActions';
-import Button from '@mui/material/Button';
-import Typography from '@mui/material/Typography';
-import Alert from '@mui/material/Alert';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
-import TextField from '@mui/material/TextField';
-import IconButton from '@mui/material/IconButton';
-import Chip from '@mui/material/Chip';
-import CircularProgress from '@mui/material/CircularProgress';
-import Grid from '@mui/material/Grid';
-import Divider from '@mui/material/Divider';
-import Tooltip from '@mui/material/Tooltip';
+import Box from '@mui/joy/Box';
+import Card from '@mui/joy/Card';
+import CardContent from '@mui/joy/CardContent';
+import CardActions from '@mui/joy/CardActions';
+import Button from '@mui/joy/Button';
+import Typography from '@mui/joy/Typography';
+import Alert from '@mui/joy/Alert';
+import Modal from '@mui/joy/Modal';
+import ModalDialog from '@mui/joy/ModalDialog';
+import DialogTitle from '@mui/joy/DialogTitle';
+import DialogContent from '@mui/joy/DialogContent';
+import DialogActions from '@mui/joy/DialogActions';
+import Input from '@mui/joy/Input';
+import Textarea from '@mui/joy/Textarea';
+import FormControl from '@mui/joy/FormControl';
+import FormLabel from '@mui/joy/FormLabel';
+import FormHelperText from '@mui/joy/FormHelperText';
+import IconButton from '@mui/joy/IconButton';
+import Chip from '@mui/joy/Chip';
+import CircularProgress from '@mui/joy/CircularProgress';
+import Grid from '@mui/joy/Grid';
+import Divider from '@mui/joy/Divider';
+import Tooltip from '@mui/joy/Tooltip';
+import Stack from '@mui/joy/Stack';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -28,6 +34,8 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import WarningIcon from '@mui/icons-material/Warning';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { DashboardLayout } from '@/components/layout';
 
 interface Application {
@@ -116,17 +124,11 @@ export default function ApplicationsPage() {
     setSelectedApp(null);
   };
 
-  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
   const handleSubmit = async () => {
     setDialogLoading(true);
     setError('');
     setSuccess('');
 
-    // 解析重定向URI
     const redirectUris = formData.redirectUris
       .split('\n')
       .map((uri) => uri.trim())
@@ -138,7 +140,6 @@ export default function ApplicationsPage() {
       return;
     }
 
-    // 解析scopes
     const scopes = formData.scopes
       .split(/[\s,]+/)
       .map((s) => s.trim())
@@ -219,7 +220,6 @@ export default function ApplicationsPage() {
       if (result.success) {
         setSuccess('客户端密钥已重新生成');
         fetchApplications();
-        // 自动显示新密钥
         setVisibleSecrets((prev) => new Set(prev).add(appId));
       } else {
         setError(result.error || '重新生成失败');
@@ -260,12 +260,9 @@ export default function ApplicationsPage() {
     <DashboardLayout>
       <Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4" fontWeight="medium">
-            应用管理
-          </Typography>
+          <Typography level="h2">应用管理</Typography>
           <Button
-            variant="contained"
-            startIcon={<AddIcon />}
+            startDecorator={<AddIcon />}
             onClick={() => handleOpenDialog('create')}
           >
             创建应用
@@ -273,21 +270,41 @@ export default function ApplicationsPage() {
         </Box>
 
         {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+          <Alert
+            color="danger"
+            variant="soft"
+            startDecorator={<WarningIcon />}
+            sx={{ mb: 2 }}
+            endDecorator={
+              <IconButton variant="soft" color="danger" onClick={() => setError('')}>
+                ×
+              </IconButton>
+            }
+          >
             {error}
           </Alert>
         )}
 
         {success && (
-          <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>
+          <Alert
+            color="success"
+            variant="soft"
+            startDecorator={<CheckCircleIcon />}
+            sx={{ mb: 2 }}
+            endDecorator={
+              <IconButton variant="soft" color="success" onClick={() => setSuccess('')}>
+                ×
+              </IconButton>
+            }
+          >
             {success}
           </Alert>
         )}
 
         {applications.length === 0 ? (
-          <Card>
+          <Card variant="outlined">
             <CardContent sx={{ textAlign: 'center', py: 6 }}>
-              <Typography color="text.secondary">
+              <Typography sx={{ color: 'text.secondary' }}>
                 暂无应用，点击“创建应用”按钮添加您的第一个应用
               </Typography>
             </CardContent>
@@ -295,23 +312,23 @@ export default function ApplicationsPage() {
         ) : (
           <Grid container spacing={3}>
             {applications.map((app) => (
-              <Grid size={{ xs: 12, md: 6 }} key={app.id}>
-                <Card>
+              <Grid xs={12} md={6} key={app.id}>
+                <Card variant="outlined">
                   <CardContent>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                      <Typography variant="h6">{app.name}</Typography>
-                      <Box>
-                        <IconButton size="small" onClick={() => handleOpenDialog('edit', app)}>
-                          <EditIcon fontSize="small" />
+                      <Typography level="title-lg">{app.name}</Typography>
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        <IconButton size="sm" variant="plain" onClick={() => handleOpenDialog('edit', app)}>
+                          <EditIcon />
                         </IconButton>
-                        <IconButton size="small" color="error" onClick={() => handleDeleteClick(app)}>
-                          <DeleteIcon fontSize="small" />
+                        <IconButton size="sm" variant="plain" color="danger" onClick={() => handleDeleteClick(app)}>
+                          <DeleteIcon />
                         </IconButton>
                       </Box>
                     </Box>
 
                     {app.description && (
-                      <Typography variant="body2" color="text.secondary" paragraph>
+                      <Typography level="body-sm" sx={{ color: 'text.secondary', mb: 2 }}>
                         {app.description}
                       </Typography>
                     )}
@@ -320,15 +337,15 @@ export default function ApplicationsPage() {
 
                     {/* Client ID */}
                     <Box sx={{ mb: 2 }}>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.5 }}>
                         Client ID
                       </Typography>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body2" sx={{ fontFamily: 'monospace', flex: 1, wordBreak: 'break-all' }}>
+                        <Typography level="body-sm" sx={{ fontFamily: 'monospace', flex: 1, wordBreak: 'break-all' }}>
                           {app.clientId}
                         </Typography>
                         <Tooltip title="复制">
-                          <IconButton size="small" onClick={() => copyToClipboard(app.clientId)}>
+                          <IconButton size="sm" variant="plain" onClick={() => copyToClipboard(app.clientId)}>
                             <ContentCopyIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -337,25 +354,25 @@ export default function ApplicationsPage() {
 
                     {/* Client Secret */}
                     <Box sx={{ mb: 2 }}>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.5 }}>
                         Client Secret
                       </Typography>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body2" sx={{ fontFamily: 'monospace', flex: 1, wordBreak: 'break-all' }}>
+                        <Typography level="body-sm" sx={{ fontFamily: 'monospace', flex: 1, wordBreak: 'break-all' }}>
                           {visibleSecrets.has(app.id) ? app.clientSecret : '••••••••••••••••'}
                         </Typography>
                         <Tooltip title={visibleSecrets.has(app.id) ? '隐藏' : '显示'}>
-                          <IconButton size="small" onClick={() => toggleSecretVisibility(app.id)}>
+                          <IconButton size="sm" variant="plain" onClick={() => toggleSecretVisibility(app.id)}>
                             {visibleSecrets.has(app.id) ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="复制">
-                          <IconButton size="small" onClick={() => copyToClipboard(app.clientSecret)}>
+                          <IconButton size="sm" variant="plain" onClick={() => copyToClipboard(app.clientSecret)}>
                             <ContentCopyIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="重新生成">
-                          <IconButton size="small" onClick={() => handleRegenerateSecret(app.id)}>
+                          <IconButton size="sm" variant="plain" onClick={() => handleRegenerateSecret(app.id)}>
                             <RefreshIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -364,30 +381,30 @@ export default function ApplicationsPage() {
 
                     {/* Redirect URIs */}
                     <Box sx={{ mb: 2 }}>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.5 }}>
                         重定向URI
                       </Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                         {JSON.parse(app.redirectUris).map((uri: string, index: number) => (
-                          <Chip key={index} label={uri} size="small" variant="outlined" />
+                          <Chip key={index} size="sm" variant="outlined">{uri}</Chip>
                         ))}
                       </Box>
                     </Box>
 
                     {/* Scopes */}
                     <Box>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.5 }}>
                         授权范围
                       </Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                         {JSON.parse(app.scopes).map((scope: string, index: number) => (
-                          <Chip key={index} label={scope} size="small" color="primary" variant="outlined" />
+                          <Chip key={index} size="sm" variant="soft" color="primary">{scope}</Chip>
                         ))}
                       </Box>
                     </Box>
                   </CardContent>
-                  <CardActions sx={{ px: 2, pb: 2 }}>
-                    <Typography variant="caption" color="text.secondary">
+                  <CardActions>
+                    <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
                       创建于 {new Date(app.createdAt).toLocaleDateString('zh-CN')}
                     </Typography>
                   </CardActions>
@@ -398,79 +415,85 @@ export default function ApplicationsPage() {
         )}
 
         {/* 创建/编辑对话框 */}
-        <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-          <DialogTitle>
-            {dialogMode === 'create' ? '创建应用' : '编辑应用'}
-          </DialogTitle>
-          <DialogContent>
-            <TextField
-              fullWidth
-              label="应用名称"
-              name="name"
-              value={formData.name}
-              onChange={handleFormChange}
-              margin="normal"
-              required
-            />
-            <TextField
-              fullWidth
-              label="应用描述"
-              name="description"
-              value={formData.description}
-              onChange={handleFormChange}
-              margin="normal"
-              multiline
-              rows={2}
-            />
-            <TextField
-              fullWidth
-              label="重定向URI"
-              name="redirectUris"
-              value={formData.redirectUris}
-              onChange={handleFormChange}
-              margin="normal"
-              required
-              multiline
-              rows={3}
-              helperText="每行一个URI，例如: http://localhost:3000/callback"
-            />
-            <TextField
-              fullWidth
-              label="授权范围"
-              name="scopes"
-              value={formData.scopes}
-              onChange={handleFormChange}
-              margin="normal"
-              helperText="空格分隔，支持: openid, profile, email, offline_access"
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseDialog}>取消</Button>
-            <Button
-              variant="contained"
-              onClick={handleSubmit}
-              disabled={dialogLoading}
-            >
-              {dialogLoading ? <CircularProgress size={24} /> : '确定'}
-            </Button>
-          </DialogActions>
-        </Dialog>
+        <Modal open={dialogOpen} onClose={handleCloseDialog}>
+          <ModalDialog sx={{ maxWidth: 500 }}>
+            <DialogTitle>
+              {dialogMode === 'create' ? '创建应用' : '编辑应用'}
+            </DialogTitle>
+            <DialogContent>
+              <Stack spacing={2} sx={{ mt: 1 }}>
+                <FormControl required>
+                  <FormLabel>应用名称</FormLabel>
+                  <Input
+                    name="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                  />
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>应用描述</FormLabel>
+                  <Textarea
+                    name="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                    minRows={2}
+                  />
+                </FormControl>
+
+                <FormControl required>
+                  <FormLabel>重定向URI</FormLabel>
+                  <Textarea
+                    name="redirectUris"
+                    value={formData.redirectUris}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, redirectUris: e.target.value }))}
+                    minRows={3}
+                  />
+                  <FormHelperText>每行一个URI，例如: http://localhost:3000/callback</FormHelperText>
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>授权范围</FormLabel>
+                  <Input
+                    name="scopes"
+                    value={formData.scopes}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, scopes: e.target.value }))}
+                  />
+                  <FormHelperText>空格分隔，支持: openid, profile, email, offline_access</FormHelperText>
+                </FormControl>
+              </Stack>
+            </DialogContent>
+            <DialogActions>
+              <Button variant="plain" color="neutral" onClick={handleCloseDialog}>
+                取消
+              </Button>
+              <Button onClick={handleSubmit} loading={dialogLoading}>
+                确定
+              </Button>
+            </DialogActions>
+          </ModalDialog>
+        </Modal>
 
         {/* 删除确认对话框 */}
-        <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-          <DialogTitle>确认删除</DialogTitle>
-          <DialogContent>
-            <Typography>
-              确定要删除应用 “{appToDelete?.name}” 吗？此操作不可撤销，所有相关的授权令牌都将失效。
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setDeleteDialogOpen(false)}>取消</Button>
-            <Button variant="contained" color="error" onClick={handleDeleteConfirm}>
-              删除
-            </Button>
-          </DialogActions>
-        </Dialog>
+        <Modal open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+          <ModalDialog variant="outlined" role="alertdialog">
+            <DialogTitle>
+              <WarningIcon />
+              确认删除
+            </DialogTitle>
+            <DialogContent>
+              确定要删除应用 &quot;{appToDelete?.name}&quot; 吗？此操作不可撤销，所有相关的授权令牌都将失效。
+            </DialogContent>
+            <DialogActions>
+              <Button variant="plain" color="neutral" onClick={() => setDeleteDialogOpen(false)}>
+                取消
+              </Button>
+              <Button color="danger" onClick={handleDeleteConfirm}>
+                删除
+              </Button>
+            </DialogActions>
+          </ModalDialog>
+        </Modal>
       </Box>
     </DashboardLayout>
   );
