@@ -1,15 +1,16 @@
 /**
- * JWKS端点（简化版，使用HS256对称密钥）
+ * JWKS端点 - 提供RS256公钥
  * GET /.well-known/jwks.json
  */
 import { NextResponse } from 'next/server';
+import { getJWKS } from '@/lib/keys';
 
 export async function GET() {
-  // 由于使用HS256对称加密，这里返回空的JWKS
-  // 在生产环境中应该使用RSA或EC非对称密钥
-  const jwks = {
-    keys: [],
-  };
-
-  return NextResponse.json(jwks);
+  try {
+    const jwks = await getJWKS();
+    return NextResponse.json(jwks);
+  } catch (error) {
+    console.error('获取JWKS失败:', error);
+    return NextResponse.json({ keys: [] });
+  }
 }

@@ -28,7 +28,7 @@ export async function GET() {
     subject_types_supported: ['public'],
 
     // 支持的ID Token签名算法
-    id_token_signing_alg_values_supported: ['HS256'],
+    id_token_signing_alg_values_supported: ['RS256'],
 
     // 支持的scope
     scopes_supported: ['openid', 'profile', 'email', 'offline_access'],

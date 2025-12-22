@@ -33,6 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# RSA密钥目录（包含私钥，不能提交）
+/.keys/
+
 # vercel
 .vercel
 

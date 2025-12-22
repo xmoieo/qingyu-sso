@@ -3,10 +3,9 @@
  */
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
-import * as jose from 'jose';
+import { JWTPayload } from 'jose';
 import { getDatabase } from '../db';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-change-in-production';
+import { signJWT } from '../keys';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 // 授权码有效期（10分钟）
@@ -223,7 +222,7 @@ export const oauthService = {
     return result.changes > 0;
   },
 
-  // 生成ID Token (OIDC)
+  // 生成ID Token (OIDC) - 使用RS256算法
   async generateIdToken(userId: string, clientId: string, nonce?: string): Promise<string> {
     const db = getDatabase();
     const userStmt = db.prepare('SELECT * FROM users WHERE id = ?');
@@ -234,9 +233,8 @@ export const oauthService = {
     }
 
     const now = Math.floor(Date.now() / 1000);
-    const secret = new TextEncoder().encode(JWT_SECRET);
 
-    const payload: Record<string, unknown> = {
+    const payload: JWTPayload = {
       iss: APP_URL,
       sub: userId,
       aud: clientId,
@@ -250,14 +248,13 @@ export const oauthService = {
     }
 
     // 添加用户信息
-    payload.name = user.nickname || user.username;
-    payload.preferred_username = user.username;
-    payload.email = user.email;
+    payload.name = (user.nickname || user.username) as string;
+    payload.preferred_username = user.username as string;
+    payload.email = user.email as string;
     payload.email_verified = true;
 
-    const jwt = await new jose.SignJWT(payload as jose.JWTPayload)
-      .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
-      .sign(secret);
+    // 使用RS256算法签名
+    const jwt = await signJWT(payload);
 
     return jwt;
   },
