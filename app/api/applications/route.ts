@@ -33,7 +33,11 @@ export async function GET() {
     let applications;
     if (isAdmin(auth.user)) {
       const result = await applicationService.findAll();
-      applications = result.applications;
+      // 管理端也需要 accessType 才能在前端展示编辑/删除等操作
+      applications = result.applications.map((app) => ({
+        ...app,
+        accessType: 'owner',
+      }));
     } else {
       applications = await applicationService.findByUserId(auth.user.id);
     }
