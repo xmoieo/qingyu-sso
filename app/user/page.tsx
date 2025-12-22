@@ -338,7 +338,14 @@ export default function UserProfilePage() {
               if (value === 1) fetchConsents();
               if (value === 2) fetchAuthLogs();
             }}>
-              <TabList>
+              <TabList
+                sx={{
+                  overflowX: 'auto',
+                  flexWrap: 'nowrap',
+                  whiteSpace: 'nowrap',
+                  WebkitOverflowScrolling: 'touch',
+                }}
+              >
                 <Tab>基本信息</Tab>
                 <Tab>已授权应用</Tab>
                 <Tab>授权日志</Tab>
