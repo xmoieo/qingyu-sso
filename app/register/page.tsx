@@ -7,18 +7,20 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Box from '@mui/joy/Box';
 import Card from '@mui/joy/Card';
+import CardContent from '@mui/joy/CardContent';
 import Input from '@mui/joy/Input';
 import Button from '@mui/joy/Button';
 import Typography from '@mui/joy/Typography';
 import Alert from '@mui/joy/Alert';
-import CircularProgress from '@mui/joy/CircularProgress';
 import IconButton from '@mui/joy/IconButton';
 import FormControl from '@mui/joy/FormControl';
 import FormLabel from '@mui/joy/FormLabel';
 import FormHelperText from '@mui/joy/FormHelperText';
-import Avatar from '@mui/joy/Avatar';
 import Stack from '@mui/joy/Stack';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import PersonIcon from '@mui/icons-material/Person';
+import EmailIcon from '@mui/icons-material/Email';
+import LockIcon from '@mui/icons-material/Lock';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import WarningIcon from '@mui/icons-material/Warning';
@@ -31,7 +33,6 @@ export default function RegisterPage() {
     email: '',
     password: '',
     confirmPassword: '',
-    nickname: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -70,7 +71,6 @@ export default function RegisterPage() {
           username: formData.username,
           email: formData.email,
           password: formData.password,
-          nickname: formData.nickname || undefined,
         }),
       });
 
@@ -96,72 +96,42 @@ export default function RegisterPage() {
       sx={{
         minHeight: '100vh',
         display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         bgcolor: 'background.surface',
+        p: 2,
       }}
     >
-      {/* 左侧图片区域 - 仅桌面端显示 */}
-      <Box
-        sx={{
-          display: { xs: 'none', md: 'flex' },
-          flex: 1,
-          bgcolor: 'primary.500',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexDirection: 'column',
-          color: 'white',
-          p: 4,
-        }}
-      >
-        <Typography level="h1" sx={{ color: 'white', fontWeight: 'bold', mb: 2 }}>
-          统一身份认证平台
-        </Typography>
-        <Typography level="body-lg" sx={{ color: 'white', opacity: 0.9, textAlign: 'center', maxWidth: 400 }}>
-          安全、便捷的企业级单点登录解决方案
-        </Typography>
-      </Box>
-
-      {/* 右侧注册表单 */}
-      <Box
-        sx={{
-          flex: { xs: 1, md: '0 0 480px' },
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          p: 3,
-          overflow: 'auto',
-        }}
-      >
-        <Card variant="outlined" sx={{ width: '100%', maxWidth: 400, p: 4, my: 2 }}>
-          <Stack spacing={3} alignItems="center" sx={{ mb: 3 }}>
-            <Avatar sx={{ bgcolor: 'primary.500', width: 56, height: 56 }}>
-              <PersonAddIcon sx={{ fontSize: 32 }} />
-            </Avatar>
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography level="h3">注册</Typography>
-              <Typography level="body-sm" sx={{ color: 'text.secondary', mt: 1 }}>
-                创建您的账户
-              </Typography>
+      <Card variant="outlined" sx={{ width: '100%', maxWidth: 400 }}>
+        <CardContent sx={{ p: 4 }}>
+          <Stack alignItems="center" spacing={1} sx={{ mb: 4 }}>
+            <Box
+              sx={{
+                width: 48,
+                height: 48,
+                borderRadius: '50%',
+                bgcolor: 'primary.softBg',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <PersonAddIcon sx={{ color: 'primary.500' }} />
             </Box>
+            <Typography level="h3">统一认证平台</Typography>
+            <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
+              创建您的账户
+            </Typography>
           </Stack>
 
           {error && (
-            <Alert
-              color="danger"
-              variant="soft"
-              startDecorator={<WarningIcon />}
-              sx={{ mb: 2 }}
-            >
+            <Alert color="danger" variant="soft" startDecorator={<WarningIcon />} sx={{ mb: 2 }}>
               {error}
             </Alert>
           )}
 
           {success && (
-            <Alert
-              color="success"
-              variant="soft"
-              startDecorator={<CheckCircleIcon />}
-              sx={{ mb: 2 }}
-            >
+            <Alert color="success" variant="soft" startDecorator={<CheckCircleIcon />} sx={{ mb: 2 }}>
               {success}
             </Alert>
           )}
@@ -172,10 +142,12 @@ export default function RegisterPage() {
                 <FormLabel>用户名</FormLabel>
                 <Input
                   name="username"
+                  startDecorator={<PersonIcon />}
+                  placeholder="请输入用户名"
                   value={formData.username}
                   onChange={handleChange}
+                  disabled={loading}
                   autoComplete="username"
-                  autoFocus
                 />
                 <FormHelperText>3-20位字母、数字或下划线</FormHelperText>
               </FormControl>
@@ -185,19 +157,12 @@ export default function RegisterPage() {
                 <Input
                   name="email"
                   type="email"
+                  startDecorator={<EmailIcon />}
+                  placeholder="请输入邮箱"
                   value={formData.email}
                   onChange={handleChange}
+                  disabled={loading}
                   autoComplete="email"
-                />
-              </FormControl>
-
-              <FormControl>
-                <FormLabel>昵称</FormLabel>
-                <Input
-                  name="nickname"
-                  value={formData.nickname}
-                  onChange={handleChange}
-                  autoComplete="name"
                 />
               </FormControl>
 
@@ -206,13 +171,17 @@ export default function RegisterPage() {
                 <Input
                   name="password"
                   type={showPassword ? 'text' : 'password'}
+                  startDecorator={<LockIcon />}
+                  placeholder="请输入密码"
                   value={formData.password}
                   onChange={handleChange}
+                  disabled={loading}
                   autoComplete="new-password"
                   endDecorator={
                     <IconButton
                       variant="plain"
                       onClick={() => setShowPassword(!showPassword)}
+                      tabIndex={-1}
                     >
                       {showPassword ? <VisibilityOff /> : <Visibility />}
                     </IconButton>
@@ -226,32 +195,34 @@ export default function RegisterPage() {
                 <Input
                   name="confirmPassword"
                   type={showPassword ? 'text' : 'password'}
+                  startDecorator={<LockIcon />}
+                  placeholder="请再次输入密码"
                   value={formData.confirmPassword}
                   onChange={handleChange}
+                  disabled={loading}
                   autoComplete="new-password"
                 />
               </FormControl>
 
-              <Button
-                type="submit"
-                fullWidth
-                loading={loading}
-                loadingIndicator={<CircularProgress size="sm" />}
-                sx={{ mt: 2 }}
-              >
+              <Button type="submit" fullWidth loading={loading}>
                 注册
               </Button>
-
-              <Typography level="body-sm" sx={{ textAlign: 'center', color: 'text.secondary' }}>
-                已有账户？{' '}
-                <Link href="/login" style={{ color: 'var(--joy-palette-primary-500)', fontWeight: 500, textDecoration: 'none' }}>
-                  立即登录
-                </Link>
-              </Typography>
             </Stack>
           </form>
-        </Card>
-      </Box>
+
+          <Typography
+            level="body-sm"
+            sx={{ mt: 3, textAlign: 'center', color: 'text.secondary' }}
+          >
+            已有账户？{' '}
+            <Link href="/login" style={{ color: 'inherit' }}>
+              <Typography sx={{ color: 'primary.500', cursor: 'pointer' }}>
+                立即登录
+              </Typography>
+            </Link>
+          </Typography>
+        </CardContent>
+      </Card>
     </Box>
   );
 }

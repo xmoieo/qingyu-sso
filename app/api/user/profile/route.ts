@@ -15,7 +15,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { nickname, email } = body;
+    const { nickname, email, gender, birthday } = body;
 
     // 邮箱格式验证
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -30,10 +30,17 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    // 生日格式验证
+    if (birthday && !/^\d{4}-\d{2}-\d{2}$/.test(birthday)) {
+      return errorResponse('生日格式不正确，请使用 YYYY-MM-DD 格式');
+    }
+
     // 更新用户信息
     const updatedUser = await userService.update(auth.user.id, {
       nickname,
       email,
+      gender,
+      birthday,
     });
 
     if (!updatedUser) {

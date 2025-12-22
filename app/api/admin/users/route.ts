@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { username, email, password, nickname, role } = body;
+    const { username, email, password, nickname, gender, birthday, role } = body;
 
     // 参数验证
     if (!username || !email || !password) {
@@ -96,6 +96,8 @@ export async function POST(request: NextRequest) {
       email,
       password,
       nickname,
+      gender,
+      birthday,
       role: role as UserRole || UserRole.USER,
     });
 

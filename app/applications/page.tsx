@@ -36,6 +36,8 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import WarningIcon from '@mui/icons-material/Warning';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ShareIcon from '@mui/icons-material/Share';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import { DashboardLayout } from '@/components/layout';
 
 interface Application {
@@ -48,6 +50,14 @@ interface Application {
   scopes: string;
   userId: string;
   createdAt: string;
+  accessType?: string;
+  ownerUsername?: string;
+}
+
+interface Permission {
+  userId: string;
+  username: string;
+  permission: string;
 }
 
 export default function ApplicationsPage() {
@@ -65,6 +75,14 @@ export default function ApplicationsPage() {
   // 删除确认对话框
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [appToDelete, setAppToDelete] = useState<Application | null>(null);
+
+  // 权限管理对话框
+  const [permDialogOpen, setPermDialogOpen] = useState(false);
+  const [permApp, setPermApp] = useState<Application | null>(null);
+  const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [permLoading, setPermLoading] = useState(false);
+  const [newPermUsername, setNewPermUsername] = useState('');
+  const [newPermType, setNewPermType] = useState<'view' | 'edit'>('view');
 
   // 密钥显示状态
   const [visibleSecrets, setVisibleSecrets] = useState<Set<string>>(new Set());
@@ -246,6 +264,60 @@ export default function ApplicationsPage() {
     setSuccess('已复制到剪贴板');
   };
 
+  const handleOpenPermDialog = async (app: Application) => {
+    setPermApp(app);
+    setPermDialogOpen(true);
+    setPermLoading(true);
+    try {
+      const response = await fetch(`/api/applications/${app.id}/permissions`);
+      const result = await response.json();
+      if (result.success) {
+        setPermissions(result.data);
+      }
+    } catch {
+      setError('获取权限列表失败');
+    } finally {
+      setPermLoading(false);
+    }
+  };
+
+  const handleAddPermission = async () => {
+    if (!permApp || !newPermUsername) return;
+    try {
+      const response = await fetch(`/api/applications/${permApp.id}/permissions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: newPermUsername, permissionType: newPermType }),
+      });
+      const result = await response.json();
+      if (result.success) {
+        setNewPermUsername('');
+        handleOpenPermDialog(permApp);
+      } else {
+        setError(result.error || '添加权限失败');
+      }
+    } catch {
+      setError('网络错误');
+    }
+  };
+
+  const handleRemovePermission = async (userId: string) => {
+    if (!permApp) return;
+    try {
+      const response = await fetch(`/api/applications/${permApp.id}/permissions`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+      const result = await response.json();
+      if (result.success) {
+        setPermissions(permissions.filter(p => p.userId !== userId));
+      }
+    } catch {
+      setError('网络错误');
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -310,20 +382,38 @@ export default function ApplicationsPage() {
             </CardContent>
           </Card>
         ) : (
-          <Grid container spacing={3}>
+          <Grid container spacing={{ xs: 2, md: 3 }} sx={{ width: '100%', m: 0 }}>
             {applications.map((app) => (
               <Grid xs={12} md={6} key={app.id}>
                 <Card variant="outlined">
                   <CardContent>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                      <Typography level="title-lg">{app.name}</Typography>
+                      <Box>
+                        <Typography level="title-lg">{app.name}</Typography>
+                        {app.accessType && app.accessType !== 'owner' && (
+                          <Chip size="sm" variant="soft" color="neutral" sx={{ mt: 0.5 }}>
+                            来自 @{app.ownerUsername}
+                          </Chip>
+                        )}
+                      </Box>
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <IconButton size="sm" variant="plain" onClick={() => handleOpenDialog('edit', app)}>
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton size="sm" variant="plain" color="danger" onClick={() => handleDeleteClick(app)}>
-                          <DeleteIcon />
-                        </IconButton>
+                        {app.accessType === 'owner' && (
+                          <Tooltip title="权限管理">
+                            <IconButton size="sm" variant="plain" onClick={() => handleOpenPermDialog(app)}>
+                              <ShareIcon />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        {(app.accessType === 'owner' || app.accessType === 'edit') && (
+                          <IconButton size="sm" variant="plain" onClick={() => handleOpenDialog('edit', app)}>
+                            <EditIcon />
+                          </IconButton>
+                        )}
+                        {app.accessType === 'owner' && (
+                          <IconButton size="sm" variant="plain" color="danger" onClick={() => handleDeleteClick(app)}>
+                            <DeleteIcon />
+                          </IconButton>
+                        )}
                       </Box>
                     </Box>
 
@@ -490,6 +580,74 @@ export default function ApplicationsPage() {
               </Button>
               <Button color="danger" onClick={handleDeleteConfirm}>
                 删除
+              </Button>
+            </DialogActions>
+          </ModalDialog>
+        </Modal>
+
+        {/* 权限管理对话框 */}
+        <Modal open={permDialogOpen} onClose={() => setPermDialogOpen(false)}>
+          <ModalDialog sx={{ maxWidth: 500 }}>
+            <DialogTitle>
+              <ShareIcon sx={{ mr: 1 }} />
+              权限管理 - {permApp?.name}
+            </DialogTitle>
+            <DialogContent>
+              <Typography level="body-sm" sx={{ mb: 2, color: 'text.secondary' }}>
+                添加其他用户以允许他们查看或编辑此应用
+              </Typography>
+              
+              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                <Input
+                  placeholder="输入用户名"
+                  value={newPermUsername}
+                  onChange={(e) => setNewPermUsername(e.target.value)}
+                  sx={{ flex: 1 }}
+                />
+                <select
+                  value={newPermType}
+                  onChange={(e) => setNewPermType(e.target.value as 'view' | 'edit')}
+                  style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                >
+                  <option value="view">查看</option>
+                  <option value="edit">编辑</option>
+                </select>
+                <Button startDecorator={<PersonAddIcon />} onClick={handleAddPermission}>
+                  添加
+                </Button>
+              </Box>
+
+              <Divider sx={{ my: 2 }} />
+
+              {permLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                  <CircularProgress size="sm" />
+                </Box>
+              ) : permissions.length === 0 ? (
+                <Typography level="body-sm" sx={{ color: 'text.tertiary', textAlign: 'center', py: 2 }}>
+                  暂无其他用户有权限访问此应用
+                </Typography>
+              ) : (
+                <Stack spacing={1}>
+                  {permissions.map((perm) => (
+                    <Box key={perm.userId} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1, bgcolor: 'background.level1', borderRadius: 'sm' }}>
+                      <Box>
+                        <Typography level="body-sm" fontWeight="md">@{perm.username}</Typography>
+                        <Chip size="sm" variant="soft" color={perm.permission === 'edit' ? 'warning' : 'neutral'}>
+                          {perm.permission === 'edit' ? '可编辑' : '仅查看'}
+                        </Chip>
+                      </Box>
+                      <IconButton size="sm" color="danger" onClick={() => handleRemovePermission(perm.userId)}>
+                        <DeleteIcon />
+                      </IconButton>
+                    </Box>
+                  ))}
+                </Stack>
+              )}
+            </DialogContent>
+            <DialogActions>
+              <Button variant="plain" onClick={() => setPermDialogOpen(false)}>
+                关闭
               </Button>
             </DialogActions>
           </ModalDialog>

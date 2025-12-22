@@ -3,7 +3,7 @@
  * POST /api/oauth/consent
  */
 import { NextRequest } from 'next/server';
-import { applicationService, oauthService } from '@/lib/services';
+import { applicationService, oauthService, authLogService } from '@/lib/services';
 import { getAuthContext, successResponse, errorResponse, unauthorizedResponse, serverErrorResponse } from '@/lib/utils';
 
 // 验证 redirect_uri 是否匹配允许列表（支持查询参数差异）
@@ -83,6 +83,20 @@ export async function POST(request: NextRequest) {
 
     // 用户同意授权，保存授权记录
     await oauthService.saveUserConsent(auth.user.id, clientId, scope);
+
+    // 记录授权日志
+    const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() 
+      || request.headers.get('x-real-ip') 
+      || 'unknown';
+    const userAgent = request.headers.get('user-agent') || undefined;
+    
+    authLogService.log({
+      userId: auth.user.id,
+      clientId,
+      action: 'consent',
+      ipAddress,
+      userAgent,
+    });
 
     // 生成授权码
     const code = await oauthService.createAuthorizationCode({

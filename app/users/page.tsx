@@ -38,6 +38,8 @@ interface User {
   username: string;
   email: string;
   nickname?: string;
+  gender?: string;
+  birthday?: string;
   role: UserRole;
   createdAt: string;
 }
@@ -64,6 +66,8 @@ export default function UsersPage() {
     email: '',
     password: '',
     nickname: '',
+    gender: '',
+    birthday: '',
     role: UserRole.USER as UserRole,
   });
 
@@ -96,6 +100,8 @@ export default function UsersPage() {
         email: user.email,
         password: '',
         nickname: user.nickname || '',
+        gender: user.gender || '',
+        birthday: user.birthday || '',
         role: user.role,
       });
     } else {
@@ -105,6 +111,8 @@ export default function UsersPage() {
         email: '',
         password: '',
         nickname: '',
+        gender: '',
+        birthday: '',
         role: UserRole.USER,
       });
     }
@@ -250,28 +258,32 @@ export default function UsersPage() {
           </Alert>
         )}
 
-        <Card variant="outlined">
+        <Card variant="outlined" sx={{ overflow: 'hidden' }}>
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
               <CircularProgress />
             </Box>
           ) : (
-            <Sheet sx={{ overflow: 'auto' }}>
+            <Sheet sx={{ overflow: 'auto', maxWidth: '100%' }}>
               <Table
                 stickyHeader
                 hoverRow
                 sx={{
                   '--TableCell-headBackground': 'var(--joy-palette-background-level1)',
+                  minWidth: 600,
+                  '& th, & td': {
+                    whiteSpace: 'nowrap',
+                  },
                 }}
               >
                 <thead>
                   <tr>
-                    <th style={{ width: 150 }}>用户名</th>
-                    <th style={{ width: 200 }}>邮箱</th>
-                    <th style={{ width: 120 }}>昵称</th>
-                    <th style={{ width: 100 }}>角色</th>
-                    <th style={{ width: 120 }}>注册时间</th>
-                    <th style={{ width: 100 }}>操作</th>
+                    <th style={{ width: 120 }}>用户名</th>
+                    <th style={{ width: 180 }}>邮箱</th>
+                    <th style={{ width: 100 }}>昵称</th>
+                    <th style={{ width: 80 }}>角色</th>
+                    <th style={{ width: 100 }}>注册时间</th>
+                    <th style={{ width: 80 }}>操作</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -326,12 +338,19 @@ export default function UsersPage() {
 
         {/* 创建/编辑对话框 */}
         <Modal open={dialogOpen} onClose={handleCloseDialog}>
-          <ModalDialog>
+          <ModalDialog sx={{ minWidth: { sm: 600 }, maxWidth: 700 }}>
             <DialogTitle>
               {dialogMode === 'create' ? '创建用户' : '编辑用户'}
             </DialogTitle>
             <DialogContent>
-              <Stack spacing={2} sx={{ mt: 1 }}>
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                  gap: 2,
+                  mt: 1,
+                }}
+              >
                 <FormControl required>
                   <FormLabel>用户名</FormLabel>
                   <Input
@@ -366,7 +385,7 @@ export default function UsersPage() {
 
                 <FormControl required={dialogMode === 'create'}>
                   <FormLabel>
-                    {dialogMode === 'create' ? '密码' : '新密码（留空则不修改）'}
+                    {dialogMode === 'create' ? '密码' : '新密码（留空不修改）'}
                   </FormLabel>
                   <Input
                     name="password"
@@ -375,6 +394,34 @@ export default function UsersPage() {
                     onChange={handleFormChange}
                   />
                   <FormHelperText>至少6位字符</FormHelperText>
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>性别</FormLabel>
+                  <Select
+                    value={formData.gender}
+                    onChange={(_, value) => setFormData((prev) => ({ ...prev, gender: value || '' }))}
+                    placeholder="请选择"
+                  >
+                    <Option value="">保密</Option>
+                    <Option value="male">男</Option>
+                    <Option value="female">女</Option>
+                  </Select>
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>生日</FormLabel>
+                  <Input
+                    name="birthday"
+                    type="date"
+                    value={formData.birthday}
+                    onChange={handleFormChange}
+                    slotProps={{
+                      input: {
+                        max: new Date().toISOString().split('T')[0],
+                      },
+                    }}
+                  />
                 </FormControl>
 
                 <FormControl>
@@ -388,7 +435,7 @@ export default function UsersPage() {
                     <Option value={UserRole.ADMIN}>管理员</Option>
                   </Select>
                 </FormControl>
-              </Stack>
+              </Box>
             </DialogContent>
             <DialogActions>
               <Button variant="plain" color="neutral" onClick={handleCloseDialog}>

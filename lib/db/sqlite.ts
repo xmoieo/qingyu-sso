@@ -35,6 +35,22 @@ export function getDatabase(): Database.Database {
 }
 
 function initTables(db: Database.Database): void {
+  // 系统设置表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS system_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  // 初始化默认设置
+  db.exec(`
+    INSERT OR IGNORE INTO system_settings (key, value) VALUES 
+    ('allow_registration', 'true'),
+    ('avatar_provider', 'gravatar')
+  `);
+
   // 用户表
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -44,11 +60,21 @@ function initTables(db: Database.Database): void {
       password TEXT NOT NULL,
       nickname TEXT,
       avatar TEXT,
+      gender TEXT,
+      birthday TEXT,
       role TEXT DEFAULT 'user',
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     )
   `);
+
+  // 尝试添加新字段（如果不存在）
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN gender TEXT`);
+  } catch { /* 字段已存在 */ }
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN birthday TEXT`);
+  } catch { /* 字段已存在 */ }
 
   // 应用程序表
   db.exec(`
@@ -64,6 +90,35 @@ function initTables(db: Database.Database): void {
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `);
+
+  // 应用程序访问权限表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS application_permissions (
+      id TEXT PRIMARY KEY,
+      application_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      permission TEXT NOT NULL DEFAULT 'view',
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      UNIQUE(application_id, user_id)
+    )
+  `);
+
+  // 授权登录日志表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS auth_logs (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      client_id TEXT NOT NULL,
+      action TEXT NOT NULL,
+      ip_address TEXT,
+      user_agent TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      FOREIGN KEY (client_id) REFERENCES applications(client_id)
     )
   `);
 
@@ -144,6 +199,10 @@ function initTables(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_applications_client_id ON applications(client_id);
     CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
     CREATE INDEX IF NOT EXISTS idx_access_tokens_token ON access_tokens(token);
+    CREATE INDEX IF NOT EXISTS idx_auth_logs_user_id ON auth_logs(user_id);
+    CREATE INDEX IF NOT EXISTS idx_auth_logs_client_id ON auth_logs(client_id);
+    CREATE INDEX IF NOT EXISTS idx_app_permissions_app_id ON application_permissions(application_id);
+    CREATE INDEX IF NOT EXISTS idx_app_permissions_user_id ON application_permissions(user_id);
   `);
 }
 

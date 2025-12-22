@@ -73,7 +73,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     const body = await request.json();
-    const { email, password, nickname, role } = body;
+    const { email, password, nickname, gender, birthday, role } = body;
 
     // 邮箱格式验证
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -98,6 +98,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       email,
       password: password || undefined,
       nickname,
+      gender,
+      birthday,
       role: role as UserRole,
     });
 

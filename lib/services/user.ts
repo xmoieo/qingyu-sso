@@ -10,6 +10,8 @@ interface CreateUserParams {
   email: string;
   password: string;
   nickname?: string;
+  gender?: string;
+  birthday?: string;
   role?: UserRole;
 }
 
@@ -19,6 +21,8 @@ interface UpdateUserParams {
   email?: string;
   password?: string;
   role?: UserRole;
+  gender?: string;
+  birthday?: string;
 }
 
 // 数据库行到用户对象的转换
@@ -30,6 +34,8 @@ function rowToUser(row: Record<string, unknown>): User {
     password: row.password as string,
     nickname: row.nickname as string | undefined,
     avatar: row.avatar as string | undefined,
+    gender: row.gender as string | undefined,
+    birthday: row.birthday as string | undefined,
     role: row.role as UserRole,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
@@ -49,11 +55,20 @@ export const userService = {
     const role = countResult.count === 0 ? UserRole.ADMIN : (params.role || UserRole.USER);
 
     const stmt = db.prepare(`
-      INSERT INTO users (id, username, email, password, nickname, role)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO users (id, username, email, password, nickname, gender, birthday, role)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-    stmt.run(id, params.username, params.email, hashedPassword, params.nickname || null, role);
+    stmt.run(
+      id,
+      params.username,
+      params.email,
+      hashedPassword,
+      params.nickname || null,
+      params.gender || null,
+      params.birthday || null,
+      role
+    );
 
     return this.findById(id) as Promise<User>;
   },
@@ -112,6 +127,14 @@ export const userService = {
     if (params.role !== undefined) {
       updates.push('role = ?');
       values.push(params.role);
+    }
+    if (params.gender !== undefined) {
+      updates.push('gender = ?');
+      values.push(params.gender);
+    }
+    if (params.birthday !== undefined) {
+      updates.push('birthday = ?');
+      values.push(params.birthday);
     }
 
     if (updates.length === 0) {

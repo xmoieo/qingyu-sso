@@ -19,8 +19,6 @@ import MenuButton from '@mui/joy/MenuButton';
 import MenuItem from '@mui/joy/MenuItem';
 import Avatar from '@mui/joy/Avatar';
 import Divider from '@mui/joy/Divider';
-import Drawer from '@mui/joy/Drawer';
-import ModalClose from '@mui/joy/ModalClose';
 import Tooltip from '@mui/joy/Tooltip';
 import MenuIcon from '@mui/icons-material/Menu';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -30,6 +28,7 @@ import AppsIcon from '@mui/icons-material/Apps';
 import PeopleIcon from '@mui/icons-material/People';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { UserRole } from '@/lib/types';
 
 const DRAWER_WIDTH = 240;
@@ -60,7 +59,7 @@ const menuItems: MenuItemType[] = [
   },
   {
     path: '/user',
-    label: '个人信息',
+    label: '个人中心',
     icon: <PersonIcon />,
     roles: [UserRole.ADMIN, UserRole.DEVELOPER, UserRole.USER],
   },
@@ -76,6 +75,12 @@ const menuItems: MenuItemType[] = [
     icon: <PeopleIcon />,
     roles: [UserRole.ADMIN],
   },
+  {
+    path: '/settings',
+    label: '系统设置',
+    icon: <SettingsIcon />,
+    roles: [UserRole.ADMIN],
+  },
 ];
 
 interface DashboardLayoutProps {
@@ -88,7 +93,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   
   const [user, setUser] = useState<User | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(true);
-  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -140,9 +144,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   // 导航处理
   const handleNavigate = (path: string) => {
     router.push(path);
-    if (isMobile) {
-      setMobileDrawerOpen(false);
-    }
   };
 
   // 获取当前底部导航索引
@@ -229,15 +230,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           bgcolor: 'background.surface',
         }}
       >
-        {isMobile ? (
-          <IconButton
-            variant="outlined"
-            color="neutral"
-            onClick={() => setMobileDrawerOpen(true)}
-          >
-            <MenuIcon />
-          </IconButton>
-        ) : (
+        {!isMobile && (
           <IconButton
             variant="outlined"
             color="neutral"
@@ -291,7 +284,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </Dropdown>
       </Sheet>
 
-      {/* 侧边栏 - 桌面端 */}
+      {/* 侧边栏 - 仅桌面端 */}
       {!isMobile && (
         <Sheet
           sx={{
@@ -311,31 +304,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </Sheet>
       )}
 
-      {/* 侧边抽屉 - 移动端 */}
-      <Drawer
-        open={mobileDrawerOpen}
-        onClose={() => setMobileDrawerOpen(false)}
-        sx={{ display: { xs: 'block', md: 'none' } }}
-      >
-        <Box sx={{ width: DRAWER_WIDTH, p: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-            <Typography level="title-lg">菜单</Typography>
-            <ModalClose />
-          </Box>
-          {sidebarContent}
-        </Box>
-      </Drawer>
-
       {/* 主内容区域 */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          p: { xs: 2, sm: 3 },
           mt: '64px',
           ml: isMobile ? 0 : drawerOpen ? `${DRAWER_WIDTH}px` : `${DRAWER_WIDTH_COLLAPSED}px`,
-          mb: isMobile ? '64px' : 0,
+          pb: isMobile ? '80px' : 3,
           transition: 'margin-left 0.2s',
+          overflow: 'auto',
         }}
       >
         {children}
@@ -357,9 +336,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             borderColor: 'divider',
             bgcolor: 'background.surface',
             zIndex: 1100,
+            px: 1,
           }}
         >
-          {visibleMenuItems.slice(0, 4).map((item, index) => (
+          {visibleMenuItems.slice(0, 5).map((item, index) => (
             <IconButton
               key={item.path}
               variant={getBottomNavValue() === index ? 'soft' : 'plain'}
@@ -367,14 +347,27 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               onClick={() => handleNavigate(item.path)}
               sx={{
                 flexDirection: 'column',
-                gap: 0.5,
+                gap: 0.25,
                 borderRadius: 'lg',
-                px: 2,
-                py: 1,
+                px: 1.5,
+                py: 0.75,
+                minWidth: 0,
+                flex: 1,
               }}
             >
               {item.icon}
-              <Typography level="body-xs">{item.label}</Typography>
+              <Typography 
+                level="body-xs" 
+                sx={{ 
+                  fontSize: '10px',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxWidth: '100%',
+                }}
+              >
+                {item.label}
+              </Typography>
             </IconButton>
           ))}
         </Sheet>
