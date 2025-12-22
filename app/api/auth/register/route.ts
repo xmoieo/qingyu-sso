@@ -9,7 +9,7 @@ import { successResponse, errorResponse, serverErrorResponse } from '@/lib/utils
 export async function POST(request: NextRequest) {
   try {
     // 检查是否允许注册
-    if (!settingsService.isRegistrationAllowed()) {
+    if (!(await settingsService.isRegistrationAllowed())) {
       return errorResponse('系统已关闭注册，请联系管理员');
     }
 
