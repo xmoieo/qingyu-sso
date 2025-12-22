@@ -6,6 +6,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { applicationService, oauthService } from '@/lib/services';
 import { getAuthContext } from '@/lib/utils';
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
 
@@ -57,9 +59,10 @@ export async function GET(request: NextRequest) {
   const auth = await getAuthContext();
 
   if (!auth) {
-    // 重定向到登录页面，带上所有参数
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('redirect', request.url);
+    // 重定向到登录页面，带上当前完整的授权URL
+    const currentUrl = `${APP_URL}/api/oauth/authorize?${searchParams.toString()}`;
+    const loginUrl = new URL('/login', APP_URL);
+    loginUrl.searchParams.set('returnUrl', currentUrl);
     return NextResponse.redirect(loginUrl);
   }
 
