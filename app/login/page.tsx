@@ -3,7 +3,7 @@
  * 登录页面
  */
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -22,6 +22,9 @@ import Avatar from '@mui/material/Avatar';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectUrl = searchParams.get('redirect');
+
   const [formData, setFormData] = useState({
     username: '',
     password: '',
@@ -51,7 +54,12 @@ export default function LoginPage() {
       const result = await response.json();
 
       if (result.success) {
-        router.push('/dashboard');
+        // 如果有重定向URL，跳转到该URL
+        if (redirectUrl) {
+          window.location.href = redirectUrl;
+        } else {
+          router.push('/dashboard');
+        }
       } else {
         setError(result.error || '登录失败');
       }
