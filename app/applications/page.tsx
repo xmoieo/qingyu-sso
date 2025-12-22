@@ -27,7 +27,12 @@ import Grid from '@mui/joy/Grid';
 import Divider from '@mui/joy/Divider';
 import Tooltip from '@mui/joy/Tooltip';
 import Stack from '@mui/joy/Stack';
+import Tabs from '@mui/joy/Tabs';
+import TabList from '@mui/joy/TabList';
+import Tab from '@mui/joy/Tab';
+import TabPanel from '@mui/joy/TabPanel';
 import AddIcon from '@mui/icons-material/Add';
+import PersonIcon from '@mui/icons-material/Person';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -65,6 +70,8 @@ export default function ApplicationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [activeTab, setActiveTab] = useState<'my' | 'shared'>('my');
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // 对话框状态
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -101,6 +108,7 @@ export default function ApplicationsPage() {
       const result = await response.json();
       if (result.success) {
         setApplications(result.data.applications);
+        setIsAdmin(result.data.isAdmin || false);
       } else {
         setError(result.error || '获取应用列表失败');
       }
@@ -373,45 +381,167 @@ export default function ApplicationsPage() {
           </Alert>
         )}
 
-        {applications.length === 0 ? (
+        {(() => {
+          const myApps = applications.filter((app) => app.accessType === 'owner');
+          const sharedApps = applications.filter((app) => app.accessType && app.accessType !== 'owner');
+
+          const renderMyApps = () => myApps.length === 0 ? (
+            <Card variant="outlined">
+              <CardContent sx={{ textAlign: 'center', py: 6 }}>
+                <Typography sx={{ color: 'text.secondary' }}>
+                  暂无应用，点击"创建应用"按钮添加您的第一个应用
+                </Typography>
+              </CardContent>
+            </Card>
+          ) : (
+            <Grid container spacing={{ xs: 2, md: 3 }} sx={{ width: '100%', m: 0 }}>
+              {myApps.map((app) => (
+                <Grid xs={12} md={6} key={app.id}>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                        <Box>
+                          <Typography level="title-lg">{app.name}</Typography>
+                          {isAdmin && app.ownerUsername && (
+                            <Chip size="sm" variant="soft" color="primary" startDecorator={<PersonIcon fontSize="small" />} sx={{ mt: 0.5 }}>
+                              开发者: @{app.ownerUsername}
+                            </Chip>
+                          )}
+                        </Box>
+                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                          <Tooltip title="权限管理">
+                            <IconButton size="sm" variant="plain" onClick={() => handleOpenPermDialog(app)}>
+                              <ShareIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <IconButton size="sm" variant="plain" onClick={() => handleOpenDialog('edit', app)}>
+                            <EditIcon />
+                          </IconButton>
+                          <IconButton size="sm" variant="plain" color="danger" onClick={() => handleDeleteClick(app)}>
+                            <DeleteIcon />
+                          </IconButton>
+                        </Box>
+                      </Box>
+
+                      {app.description && (
+                        <Typography level="body-sm" sx={{ color: 'text.secondary', mb: 2 }}>
+                          {app.description}
+                        </Typography>
+                      )}
+
+                      <Divider sx={{ my: 2 }} />
+
+                      {/* Client ID */}
+                      <Box sx={{ mb: 2 }}>
+                        <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.5 }}>
+                          Client ID
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography level="body-sm" sx={{ fontFamily: 'monospace', flex: 1, wordBreak: 'break-all' }}>
+                            {app.clientId}
+                          </Typography>
+                          <Tooltip title="复制">
+                            <IconButton size="sm" variant="plain" onClick={() => copyToClipboard(app.clientId)}>
+                              <ContentCopyIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      </Box>
+
+                      {/* Client Secret */}
+                      <Box sx={{ mb: 2 }}>
+                        <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.5 }}>
+                          Client Secret
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography level="body-sm" sx={{ fontFamily: 'monospace', flex: 1, wordBreak: 'break-all' }}>
+                            {visibleSecrets.has(app.id) ? app.clientSecret : '••••••••••••••••'}
+                          </Typography>
+                          <Tooltip title={visibleSecrets.has(app.id) ? '隐藏' : '显示'}>
+                            <IconButton size="sm" variant="plain" onClick={() => toggleSecretVisibility(app.id)}>
+                              {visibleSecrets.has(app.id) ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="复制">
+                            <IconButton size="sm" variant="plain" onClick={() => copyToClipboard(app.clientSecret)}>
+                              <ContentCopyIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="重新生成">
+                            <IconButton size="sm" variant="plain" onClick={() => handleRegenerateSecret(app.id)}>
+                              <RefreshIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      </Box>
+
+                      {/* Redirect URIs */}
+                      <Box sx={{ mb: 2 }}>
+                        <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.5 }}>
+                          重定向URI
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {JSON.parse(app.redirectUris).map((uri: string, index: number) => (
+                            <Chip
+                              key={index}
+                              size="sm"
+                              variant="outlined"
+                              sx={{ maxWidth: '100%', whiteSpace: 'normal', wordBreak: 'break-all' }}
+                            >
+                              {uri}
+                            </Chip>
+                          ))}
+                        </Box>
+                      </Box>
+
+                      {/* Scopes */}
+                      <Box>
+                        <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.5 }}>
+                          授权范围
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {JSON.parse(app.scopes).map((scope: string, index: number) => (
+                            <Chip key={index} size="sm" variant="soft" color="primary">{scope}</Chip>
+                          ))}
+                        </Box>
+                      </Box>
+                    </CardContent>
+                    <CardActions>
+                      <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                        创建于 {new Date(app.createdAt).toLocaleDateString('zh-CN')}
+                      </Typography>
+                    </CardActions>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          );
+
+          const renderSharedApps = () => sharedApps.length === 0 ? (
           <Card variant="outlined">
             <CardContent sx={{ textAlign: 'center', py: 6 }}>
               <Typography sx={{ color: 'text.secondary' }}>
-                暂无应用，点击“创建应用”按钮添加您的第一个应用
+                暂无其他用户共享的应用
               </Typography>
             </CardContent>
           </Card>
         ) : (
           <Grid container spacing={{ xs: 2, md: 3 }} sx={{ width: '100%', m: 0 }}>
-            {applications.map((app) => (
+            {sharedApps.map((app) => (
               <Grid xs={12} md={6} key={app.id}>
                 <Card variant="outlined">
                   <CardContent>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                       <Box>
                         <Typography level="title-lg">{app.name}</Typography>
-                        {app.accessType && app.accessType !== 'owner' && (
-                          <Chip size="sm" variant="soft" color="neutral" sx={{ mt: 0.5 }}>
-                            来自 @{app.ownerUsername}
-                          </Chip>
-                        )}
+                        <Chip size="sm" variant="soft" color="neutral" sx={{ mt: 0.5 }}>
+                          来自 @{app.ownerUsername} · {app.accessType === 'edit' ? '可编辑' : '仅查看'}
+                        </Chip>
                       </Box>
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        {app.accessType === 'owner' && (
-                          <Tooltip title="权限管理">
-                            <IconButton size="sm" variant="plain" onClick={() => handleOpenPermDialog(app)}>
-                              <ShareIcon />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        {(app.accessType === 'owner' || app.accessType === 'edit') && (
+                        {app.accessType === 'edit' && (
                           <IconButton size="sm" variant="plain" onClick={() => handleOpenDialog('edit', app)}>
                             <EditIcon />
-                          </IconButton>
-                        )}
-                        {app.accessType === 'owner' && (
-                          <IconButton size="sm" variant="plain" color="danger" onClick={() => handleDeleteClick(app)}>
-                            <DeleteIcon />
                           </IconButton>
                         )}
                       </Box>
@@ -461,11 +591,6 @@ export default function ApplicationsPage() {
                             <ContentCopyIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="重新生成">
-                          <IconButton size="sm" variant="plain" onClick={() => handleRegenerateSecret(app.id)}>
-                            <RefreshIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
                       </Box>
                     </Box>
 
@@ -509,7 +634,29 @@ export default function ApplicationsPage() {
               </Grid>
             ))}
           </Grid>
-        )}
+        );
+
+        // 如果是管理员，显示所有应用（带开发者信息）
+        if (isAdmin) {
+          return renderMyApps();
+        }
+
+        // 非管理员显示 tab
+        return (
+          <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v as 'my' | 'shared')} sx={{ bgcolor: 'transparent' }}>
+            <TabList>
+              <Tab value="my">我的应用 ({myApps.length})</Tab>
+              <Tab value="shared">共享给我的 ({sharedApps.length})</Tab>
+            </TabList>
+            <TabPanel value="my" sx={{ p: 0, pt: 2 }}>
+              {renderMyApps()}
+            </TabPanel>
+            <TabPanel value="shared" sx={{ p: 0, pt: 2 }}>
+              {renderSharedApps()}
+            </TabPanel>
+          </Tabs>
+        );
+      })()}
 
         {/* 创建/编辑对话框 */}
         <Modal open={dialogOpen} onClose={handleCloseDialog}>
@@ -525,7 +672,11 @@ export default function ApplicationsPage() {
                     name="name"
                     value={formData.name}
                     onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                    disabled={dialogMode === 'edit' && selectedApp?.accessType !== 'owner' && !isAdmin}
                   />
+                  {dialogMode === 'edit' && selectedApp?.accessType !== 'owner' && !isAdmin && (
+                    <FormHelperText>共享用户不能修改应用名称</FormHelperText>
+                  )}
                 </FormControl>
 
                 <FormControl>

@@ -31,7 +31,8 @@ export async function GET() {
 
     // 管理员可以看到所有应用，开发者只能看到自己的应用
     let applications;
-    if (isAdmin(auth.user)) {
+    const userIsAdmin = isAdmin(auth.user);
+    if (userIsAdmin) {
       const result = await applicationService.findAll();
       // 管理端也需要 accessType 才能在前端展示编辑/删除等操作
       applications = result.applications.map((app) => ({
@@ -42,7 +43,7 @@ export async function GET() {
       applications = await applicationService.findByUserId(auth.user.id);
     }
 
-    return successResponse({ applications, total: applications.length });
+    return successResponse({ applications, total: applications.length, isAdmin: userIsAdmin });
   } catch (error) {
     console.error('获取应用列表失败:', error);
     return serverErrorResponse('获取应用列表失败');

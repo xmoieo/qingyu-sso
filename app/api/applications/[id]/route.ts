@@ -9,7 +9,6 @@ import { applicationService } from '@/lib/services';
 import {
   getAuthContext,
   isDeveloperOrAdmin,
-  isAdmin,
   successResponse,
   errorResponse,
   unauthorizedResponse,
@@ -23,19 +22,35 @@ interface RouteParams {
 }
 
 // 检查用户是否有权限操作该应用
-async function checkAppPermission(appId: string, userId: string, userRole: string): Promise<{ allowed: boolean; app?: Awaited<ReturnType<typeof applicationService.findById>> }> {
+async function checkAppPermission(appId: string, userId: string, userRole: string): Promise<{ 
+  allowed: boolean; 
+  app?: Awaited<ReturnType<typeof applicationService.findById>>;
+  isOwner: boolean;
+  permissionType: 'owner' | 'edit' | 'view' | null;
+}> {
   const app = await applicationService.findById(appId);
 
   if (!app) {
-    return { allowed: false };
+    return { allowed: false, isOwner: false, permissionType: null };
   }
 
-  // 管理员可以操作所有应用，开发者只能操作自己的应用
-  if (userRole === 'admin' || app.userId === userId) {
-    return { allowed: true, app };
+  // 管理员可以操作所有应用
+  if (userRole === 'admin') {
+    return { allowed: true, app, isOwner: true, permissionType: 'owner' };
+  }
+  
+  // 检查是否是所有者
+  if (app.userId === userId) {
+    return { allowed: true, app, isOwner: true, permissionType: 'owner' };
   }
 
-  return { allowed: false, app };
+  // 检查是否有共享权限
+  const permission = await applicationService.checkPermission(appId, userId);
+  if (permission === 'edit' || permission === 'view') {
+    return { allowed: true, app, isOwner: false, permissionType: permission };
+  }
+
+  return { allowed: false, app, isOwner: false, permissionType: null };
 }
 
 // 获取应用详情
@@ -83,7 +98,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     const { id } = await params;
-    const { allowed, app } = await checkAppPermission(id, auth.user.id, auth.user.role);
+    const { allowed, app, isOwner, permissionType } = await checkAppPermission(id, auth.user.id, auth.user.role);
 
     if (!app) {
       return notFoundResponse('应用不存在');
@@ -93,8 +108,18 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return forbiddenResponse('无权修改此应用');
     }
 
+    // 共享用户只有 edit 权限才能修改
+    if (!isOwner && permissionType !== 'edit') {
+      return forbiddenResponse('无权修改此应用');
+    }
+
     const body = await request.json();
     const { name, description, redirectUris, scopes } = body;
+
+    // 共享用户（非所有者）不能修改应用名称
+    if (!isOwner && name !== undefined && name !== app.name) {
+      return forbiddenResponse('共享用户不能修改应用名称');
+    }
 
     // 验证重定向URI格式
     if (redirectUris) {
@@ -111,12 +136,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    const updatedApp = await applicationService.update(id, {
-      name,
-      description,
-      redirectUris,
-      scopes,
-    });
+    // 共享用户更新时排除 name 字段
+    const updateData = isOwner 
+      ? { name, description, redirectUris, scopes }
+      : { description, redirectUris, scopes };
+
+    const updatedApp = await applicationService.update(id, updateData);
 
     if (!updatedApp) {
       return errorResponse('更新失败');
@@ -143,14 +168,15 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     }
 
     const { id } = await params;
-    const { allowed, app } = await checkAppPermission(id, auth.user.id, auth.user.role);
+    const { app, isOwner } = await checkAppPermission(id, auth.user.id, auth.user.role);
 
     if (!app) {
       return notFoundResponse('应用不存在');
     }
 
-    if (!allowed) {
-      return forbiddenResponse('无权删除此应用');
+    // 只有管理员和应用所有者才能删除应用
+    if (!isOwner) {
+      return forbiddenResponse('只有管理员和应用创建者才能删除应用');
     }
 
     const deleted = await applicationService.delete(id);

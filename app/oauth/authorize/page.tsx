@@ -176,8 +176,8 @@ function AuthorizeContent() {
     }
   };
 
-  // 解析scope列表
-  const scopes = scope.split(' ').map((s) => ({
+  // 解析scope列表（去重）
+  const scopes = [...new Set(scope.split(' ').filter((s) => s.trim()))].map((s) => ({
     scope: s,
     ...(scopeInfoMap[s] || {
       label: s,
