@@ -4,10 +4,19 @@
  */
 import { NextRequest } from 'next/server';
 import { userService, settingsService } from '@/lib/services';
-import { successResponse, errorResponse, serverErrorResponse } from '@/lib/utils';
+import { successResponse, errorResponse, serverErrorResponse, buildRateLimitKey, checkRateLimit } from '@/lib/utils';
 
 export async function POST(request: NextRequest) {
   try {
+    const rate = checkRateLimit({
+      key: buildRateLimitKey(request, 'auth:register'),
+      limit: 5,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!rate.allowed) {
+      return errorResponse('请求过于频繁，请稍后再试', 429);
+    }
+
     // 检查是否允许注册
     if (!(await settingsService.isRegistrationAllowed())) {
       return errorResponse('系统已关闭注册，请联系管理员');

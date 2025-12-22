@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { applicationService, oauthService } from '@/lib/services';
+import { buildRateLimitKey, checkRateLimit } from '@/lib/utils';
 
 export async function POST(request: NextRequest) {
   const contentType = request.headers.get('content-type');
@@ -20,6 +21,27 @@ export async function POST(request: NextRequest) {
   const grantType = body.grant_type;
   const clientId = body.client_id;
   const clientSecret = body.client_secret;
+
+  const rate = checkRateLimit({
+    key: buildRateLimitKey(request, 'oauth:token', [clientId || 'no-client']),
+    limit: 60,
+    windowMs: 60 * 1000,
+  });
+  if (!rate.allowed) {
+    return NextResponse.json(
+      {
+        error: 'slow_down',
+        error_description: 'Too many requests',
+      },
+      {
+        status: 429,
+        headers: {
+          'Cache-Control': 'no-store',
+          Pragma: 'no-cache',
+        },
+      }
+    );
+  }
 
   // 从Authorization头获取客户端凭证
   let authClientId = clientId;

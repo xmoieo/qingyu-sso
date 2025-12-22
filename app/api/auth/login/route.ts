@@ -4,10 +4,19 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { authService } from '@/lib/services';
-import { successResponse, errorResponse, serverErrorResponse } from '@/lib/utils';
+import { errorResponse, serverErrorResponse, buildRateLimitKey, checkRateLimit } from '@/lib/utils';
 
 export async function POST(request: NextRequest) {
   try {
+    const rate = checkRateLimit({
+      key: buildRateLimitKey(request, 'auth:login'),
+      limit: 10,
+      windowMs: 5 * 60 * 1000,
+    });
+    if (!rate.allowed) {
+      return errorResponse('请求过于频繁，请稍后再试', 429);
+    }
+
     const body = await request.json();
     const { username, password } = body;
 
