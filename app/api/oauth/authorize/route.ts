@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
   }
 
   // 重定向到授权同意页面
-  const consentUrl = new URL('/oauth/authorize', request.url);
+  const consentUrl = new URL('/oauth/authorize', APP_URL);
   consentUrl.searchParams.set('client_id', clientId);
   consentUrl.searchParams.set('redirect_uri', redirectUri);
   consentUrl.searchParams.set('scope', scope);
