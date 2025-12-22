@@ -445,8 +445,15 @@ export default function UserProfilePage() {
                         暂无已授权的应用
                       </Typography>
                     ) : (
-                      <Sheet variant="outlined" sx={{ borderRadius: 'sm', overflow: 'auto' }}>
-                        <Table>
+                      <Sheet
+                        variant="outlined"
+                        sx={{
+                          borderRadius: 'sm',
+                          overflowX: 'auto',
+                          WebkitOverflowScrolling: 'touch',
+                        }}
+                      >
+                        <Table sx={{ minWidth: 720 }}>
                           <thead>
                             <tr>
                               <th>应用名称</th>
@@ -506,8 +513,15 @@ export default function UserProfilePage() {
                         暂无授权日志
                       </Typography>
                     ) : (
-                      <Sheet variant="outlined" sx={{ borderRadius: 'sm', overflow: 'auto' }}>
-                        <Table>
+                      <Sheet
+                        variant="outlined"
+                        sx={{
+                          borderRadius: 'sm',
+                          overflowX: 'auto',
+                          WebkitOverflowScrolling: 'touch',
+                        }}
+                      >
+                        <Table sx={{ minWidth: 720 }}>
                           <thead>
                             <tr>
                               <th>应用</th>
