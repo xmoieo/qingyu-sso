@@ -4,8 +4,8 @@
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import { JWTPayload } from 'jose';
-import { getDatabase } from '../db';
 import { signJWT } from '../keys';
+import { prisma } from '../prisma';
 const APP_URL = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 // 授权码有效期（10分钟）
@@ -44,26 +44,21 @@ interface UserInfo {
 export const oauthService = {
   // 创建授权码
   async createAuthorizationCode(params: CreateAuthCodeParams): Promise<string> {
-    const db = await getDatabase();
     const code = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + AUTH_CODE_EXPIRES_IN).toISOString();
+    const expiresAt = new Date(Date.now() + AUTH_CODE_EXPIRES_IN);
 
-    await db.execute(
-      `
-      INSERT INTO authorization_codes (code, client_id, user_id, redirect_uri, scope, code_challenge, code_challenge_method, expires_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `,
-      [
+    await prisma().authorizationCode.create({
+      data: {
         code,
-        params.clientId,
-        params.userId,
-        params.redirectUri,
-        params.scope,
-        params.codeChallenge || null,
-        params.codeChallengeMethod || null,
+        clientId: params.clientId,
+        userId: params.userId,
+        redirectUri: params.redirectUri,
+        scope: params.scope,
+        codeChallenge: params.codeChallenge ?? null,
+        codeChallengeMethod: params.codeChallengeMethod ?? null,
         expiresAt,
-      ]
-    );
+      },
+    });
 
     return code;
   },
@@ -77,29 +72,20 @@ export const oauthService = {
     codeChallenge?: string;
     codeChallengeMethod?: string;
   } | null> {
-    const db = await getDatabase();
-    const row = await db.queryOne<Record<string, unknown>>(
-      `
-      SELECT * FROM authorization_codes 
-      WHERE code = ? AND expires_at > datetime('now')
-    `,
-      [code]
-    );
-
-    if (!row) {
-      return null;
-    }
+    const row = await prisma().authorizationCode.findUnique({ where: { code } });
+    if (!row) return null;
+    if (row.expiresAt <= new Date()) return null;
 
     // 删除已使用的授权码（一次性使用）
-    await db.execute('DELETE FROM authorization_codes WHERE code = ?', [code]);
+    await prisma().authorizationCode.delete({ where: { code } });
 
     return {
-      clientId: row.client_id as string,
-      userId: row.user_id as string,
-      redirectUri: row.redirect_uri as string,
-      scope: row.scope as string,
-      codeChallenge: row.code_challenge as string | undefined,
-      codeChallengeMethod: row.code_challenge_method as string | undefined,
+      clientId: row.clientId,
+      userId: row.userId,
+      redirectUri: row.redirectUri,
+      scope: row.scope ?? '',
+      codeChallenge: row.codeChallenge ?? undefined,
+      codeChallengeMethod: row.codeChallengeMethod ?? undefined,
     };
   },
 
@@ -121,36 +107,38 @@ export const oauthService = {
     accessTokenId: string;
     expiresAt: Date;
   }> {
-    const db = await getDatabase();
     const id = uuidv4();
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + ACCESS_TOKEN_EXPIRES_IN);
 
-    await db.execute(
-      `
-      INSERT INTO access_tokens (id, token, client_id, user_id, scope, expires_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `,
-      [id, token, clientId, userId, scope, expiresAt.toISOString()]
-    );
+    await prisma().accessToken.create({
+      data: {
+        id,
+        token,
+        clientId,
+        userId,
+        scope,
+        expiresAt,
+      },
+    });
 
     return { accessToken: token, accessTokenId: id, expiresAt };
   },
 
   // 创建刷新令牌
   async createRefreshToken(accessTokenId: string): Promise<string> {
-    const db = await getDatabase();
     const id = uuidv4();
     const token = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRES_IN).toISOString();
+    const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRES_IN);
 
-    await db.execute(
-      `
-      INSERT INTO refresh_tokens (id, token, access_token_id, expires_at)
-      VALUES (?, ?, ?, ?)
-    `,
-      [id, token, accessTokenId, expiresAt]
-    );
+    await prisma().refreshToken.create({
+      data: {
+        id,
+        token,
+        accessTokenId,
+        expiresAt,
+      },
+    });
 
     return token;
   },
@@ -161,23 +149,14 @@ export const oauthService = {
     clientId: string;
     scope: string;
   } | null> {
-    const db = await getDatabase();
-    const row = await db.queryOne<Record<string, unknown>>(
-      `
-      SELECT * FROM access_tokens 
-      WHERE token = ? AND expires_at > datetime('now')
-    `,
-      [token]
-    );
-
-    if (!row) {
-      return null;
-    }
+    const row = await prisma().accessToken.findUnique({ where: { token } });
+    if (!row) return null;
+    if (row.expiresAt <= new Date()) return null;
 
     return {
-      userId: row.user_id as string,
-      clientId: row.client_id as string,
-      scope: row.scope as string,
+      userId: row.userId,
+      clientId: row.clientId,
+      scope: row.scope ?? '',
     };
   },
 
@@ -188,50 +167,35 @@ export const oauthService = {
     clientId: string;
     scope: string;
   } | null> {
-    const db = await getDatabase();
-    const row = await db.queryOne<Record<string, unknown>>(
-      `
-      SELECT rt.*, at.user_id, at.client_id, at.scope
-      FROM refresh_tokens rt
-      JOIN access_tokens at ON rt.access_token_id = at.id
-      WHERE rt.token = ? AND rt.expires_at > datetime('now')
-    `,
-      [token]
-    );
+    const row = await prisma().refreshToken.findUnique({
+      where: { token },
+      include: { accessToken: { select: { userId: true, clientId: true, scope: true } } },
+    });
 
-    if (!row) {
-      return null;
-    }
+    if (!row) return null;
+    if (row.expiresAt <= new Date()) return null;
 
     return {
-      accessTokenId: row.access_token_id as string,
-      userId: row.user_id as string,
-      clientId: row.client_id as string,
-      scope: row.scope as string,
+      accessTokenId: row.accessTokenId,
+      userId: row.accessToken.userId,
+      clientId: row.accessToken.clientId,
+      scope: row.accessToken.scope ?? '',
     };
   },
 
   // 撤销令牌
   async revokeToken(token: string): Promise<boolean> {
-    const db = await getDatabase();
+    const access = await prisma().accessToken.deleteMany({ where: { token } });
+    if (access.count > 0) return true;
 
-    // 尝试作为访问令牌删除
-    const accessChanges = await db.execute('DELETE FROM access_tokens WHERE token = ?', [token]);
-    if (accessChanges > 0) return true;
-
-    // 尝试作为刷新令牌删除
-    const refreshChanges = await db.execute('DELETE FROM refresh_tokens WHERE token = ?', [token]);
-    return refreshChanges > 0;
+    const refresh = await prisma().refreshToken.deleteMany({ where: { token } });
+    return refresh.count > 0;
   },
 
   // 生成ID Token (OIDC) - 使用RS256算法
   async generateIdToken(userId: string, clientId: string, nonce?: string): Promise<string> {
-    const db = await getDatabase();
-    const user = await db.queryOne<Record<string, unknown>>('SELECT * FROM users WHERE id = ?', [userId]);
-
-    if (!user) {
-      throw new Error('用户不存在');
-    }
+    const user = await prisma().user.findUnique({ where: { id: userId } });
+    if (!user) throw new Error('用户不存在');
 
     const now = Math.floor(Date.now() / 1000);
 
@@ -262,12 +226,8 @@ export const oauthService = {
 
   // 获取用户信息 (OIDC UserInfo)
   async getUserInfo(userId: string, scope: string): Promise<UserInfo> {
-    const db = await getDatabase();
-    const user = await db.queryOne<Record<string, unknown>>('SELECT * FROM users WHERE id = ?', [userId]);
-
-    if (!user) {
-      throw new Error('用户不存在');
-    }
+    const user = await prisma().user.findUnique({ where: { id: userId } });
+    if (!user) throw new Error('用户不存在');
 
     const scopes = scope.split(' ');
     const userInfo: UserInfo = {
@@ -376,8 +336,7 @@ export const oauthService = {
       result.refresh_token = await this.createRefreshToken(accessTokenId);
 
       // 删除旧的刷新令牌
-      const db = await getDatabase();
-      await db.execute('DELETE FROM refresh_tokens WHERE token = ?', [refreshToken]);
+      await prisma().refreshToken.deleteMany({ where: { token: refreshToken } });
     }
 
     return result;
@@ -385,26 +344,21 @@ export const oauthService = {
 
   // 保存用户授权同意
   async saveUserConsent(userId: string, clientId: string, scope: string): Promise<void> {
-    const db = await getDatabase();
     const id = uuidv4();
 
-    await db.execute(
-      `
-      INSERT INTO user_consents (id, user_id, client_id, scope, created_at)
-      VALUES (?, ?, ?, ?, datetime('now'))
-      ON CONFLICT(user_id, client_id) DO UPDATE SET scope = ?, created_at = datetime('now')
-    `,
-      [id, userId, clientId, scope, scope]
-    );
+    await prisma().userConsent.upsert({
+      where: { userId_clientId: { userId, clientId } },
+      create: { id, userId, clientId, scope },
+      update: { scope, createdAt: new Date() },
+    });
   },
 
   // 检查用户是否已授权
   async checkUserConsent(userId: string, clientId: string): Promise<string | null> {
-    const db = await getDatabase();
-    const row = await db.queryOne<{ scope: string }>(
-      'SELECT scope FROM user_consents WHERE user_id = ? AND client_id = ?',
-      [userId, clientId]
-    );
+    const row = await prisma().userConsent.findUnique({
+      where: { userId_clientId: { userId, clientId } },
+      select: { scope: true },
+    });
 
     return row?.scope ?? null;
   },

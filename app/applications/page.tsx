@@ -389,7 +389,7 @@ export default function ApplicationsPage() {
             <Card variant="outlined">
               <CardContent sx={{ textAlign: 'center', py: 6 }}>
                 <Typography sx={{ color: 'text.secondary' }}>
-                  暂无应用，点击"创建应用"按钮添加您的第一个应用
+                  暂无应用，点击“创建应用”按钮添加您的第一个应用
                 </Typography>
               </CardContent>
             </Card>

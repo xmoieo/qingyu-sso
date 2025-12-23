@@ -1,0 +1,176 @@
+// Prisma schema for SSO (SQLite)
+// Other DBs:
+// - prisma/schema.postgresql.prisma
+// - prisma/schema.mysql.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model SystemSetting {
+  key       String   @id @map("key")
+  value     String   @map("value")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}
+
+model User {
+  id        String   @id @map("id")
+  username  String   @unique @map("username")
+  email     String   @unique @map("email")
+  password  String   @map("password")
+  nickname  String?  @map("nickname")
+  avatar    String?  @map("avatar")
+  gender    String?  @map("gender")
+  birthday  String?  @map("birthday")
+  role      String   @default("user") @map("role")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  applications Application[]
+  sessions     Session[]
+  accessTokens AccessToken[]
+  authLogs     AuthLog[]
+  authCodes    AuthorizationCode[]
+  consents     UserConsent[]
+  permissions  ApplicationPermission[]
+
+  @@map("users")
+  @@index([username], map: "idx_users_username")
+  @@index([email], map: "idx_users_email")
+}
+
+model Application {
+  id           String   @id @map("id")
+  clientId     String   @unique @map("client_id")
+  clientSecret String   @map("client_secret")
+  name         String   @map("name")
+  description  String?  @map("description")
+  redirectUris String   @map("redirect_uris")
+  scopes       String   @map("scopes")
+  userId       String   @map("user_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  owner       User                     @relation(fields: [userId], references: [id])
+  permissions ApplicationPermission[]
+  accessTokens AccessToken[]
+  authCodes    AuthorizationCode[]
+  consents     UserConsent[]
+  authLogs     AuthLog[]
+
+  @@map("applications")
+  @@index([clientId], map: "idx_applications_client_id")
+}
+
+model ApplicationPermission {
+  id            String   @id @map("id")
+  applicationId String   @map("application_id")
+  userId        String   @map("user_id")
+  permission    String   @default("view") @map("permission")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id])
+
+  @@map("application_permissions")
+  @@unique([applicationId, userId])
+  @@index([applicationId], map: "idx_app_permissions_app_id")
+  @@index([userId], map: "idx_app_permissions_user_id")
+}
+
+model AuthLog {
+  id        String   @id @map("id")
+  userId    String   @map("user_id")
+  clientId  String   @map("client_id")
+  action    String   @map("action")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user        User        @relation(fields: [userId], references: [id])
+  application Application @relation(fields: [clientId], references: [clientId])
+
+  @@map("auth_logs")
+  @@index([userId], map: "idx_auth_logs_user_id")
+  @@index([clientId], map: "idx_auth_logs_client_id")
+}
+
+model AuthorizationCode {
+  code               String   @id @map("code")
+  clientId           String   @map("client_id")
+  userId             String   @map("user_id")
+  redirectUri        String   @map("redirect_uri")
+  scope              String?  @map("scope")
+  codeChallenge      String?  @map("code_challenge")
+  codeChallengeMethod String? @map("code_challenge_method")
+  expiresAt          DateTime @map("expires_at")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  user        User        @relation(fields: [userId], references: [id])
+  application Application @relation(fields: [clientId], references: [clientId])
+
+  @@map("authorization_codes")
+}
+
+model AccessToken {
+  id        String   @id @map("id")
+  token     String   @unique @map("token")
+  clientId  String   @map("client_id")
+  userId    String   @map("user_id")
+  scope     String?  @map("scope")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user        User        @relation(fields: [userId], references: [id])
+  application Application @relation(fields: [clientId], references: [clientId])
+  refreshTokens RefreshToken[]
+
+  @@map("access_tokens")
+  @@index([token], map: "idx_access_tokens_token")
+}
+
+model RefreshToken {
+  id            String   @id @map("id")
+  token         String   @unique @map("token")
+  accessTokenId String   @map("access_token_id")
+  expiresAt     DateTime @map("expires_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  accessToken AccessToken @relation(fields: [accessTokenId], references: [id])
+
+  @@map("refresh_tokens")
+}
+
+model Session {
+  id        String   @id @map("id")
+  userId    String   @map("user_id")
+  token     String   @unique @map("token")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("sessions")
+  @@index([token], map: "idx_sessions_token")
+}
+
+model UserConsent {
+  id        String   @id @map("id")
+  userId    String   @map("user_id")
+  clientId  String   @map("client_id")
+  scope     String   @map("scope")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user        User        @relation(fields: [userId], references: [id])
+  application Application @relation(fields: [clientId], references: [clientId])
+
+  @@map("user_consents")
+  @@unique([userId, clientId])
+}

@@ -3,9 +3,9 @@
  * GET /api/users/search?q=username
  */
 import { NextRequest } from 'next/server';
-import { getDatabase } from '@/lib/db';
 import { getAuthContext, successResponse, unauthorizedResponse, forbiddenResponse, serverErrorResponse } from '@/lib/utils';
 import { isDeveloperOrAdmin } from '@/lib/utils';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,22 +26,30 @@ export async function GET(request: NextRequest) {
       return successResponse([]);
     }
 
-    const db = await getDatabase();
-    const searchTerm = `%${query}%`;
-
-    const rows = (await db.query<Record<string, unknown>>(`
-      SELECT id, username, nickname, email, role
-      FROM users
-      WHERE username LIKE ? OR nickname LIKE ? OR email LIKE ?
-      LIMIT 10
-    `, [searchTerm, searchTerm, searchTerm])).rows;
+    const rows = await prisma().user.findMany({
+      where: {
+        OR: [
+          { username: { contains: query } },
+          { nickname: { contains: query } },
+          { email: { contains: query } },
+        ],
+      },
+      select: {
+        id: true,
+        username: true,
+        nickname: true,
+        email: true,
+        role: true,
+      },
+      take: 10,
+    });
 
     const users = rows.map((row) => ({
-      id: row.id as string,
-      username: row.username as string,
-      nickname: row.nickname as string | null,
-      email: row.email as string,
-      role: row.role as string,
+      id: row.id,
+      username: row.username,
+      nickname: row.nickname,
+      email: row.email,
+      role: row.role,
     }));
 
     return successResponse(users);

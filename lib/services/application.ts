@@ -2,9 +2,10 @@
  * 应用程序数据访问层
  */
 import { v4 as uuidv4 } from 'uuid';
-import { getDatabase, Application } from '../db';
+import { Application } from '../db';
 import crypto from 'crypto';
-import { numberFromCount, toIsoString } from '../db/client';
+import { toIsoString } from '../db/client';
+import { prisma } from '../prisma';
 
 interface CreateApplicationParams {
   name: string;
@@ -32,61 +33,65 @@ function generateClientSecret(): string {
 }
 
 // 数据库行到应用对象的转换
-function rowToApplication(row: Record<string, unknown>): Application {
+function modelToApplication(row: {
+  id: string;
+  clientId: string;
+  clientSecret: string;
+  name: string;
+  description: string | null;
+  redirectUris: string;
+  scopes: string;
+  userId: string;
+  createdAt: Date;
+  updatedAt: Date;
+}): Application {
   return {
-    id: row.id as string,
-    clientId: row.client_id as string,
-    clientSecret: row.client_secret as string,
-    name: row.name as string,
-    description: row.description as string | undefined,
-    redirectUris: row.redirect_uris as string,
-    scopes: row.scopes as string,
-    userId: row.user_id as string,
-    createdAt: toIsoString(row.created_at),
-    updatedAt: toIsoString(row.updated_at),
+    id: row.id,
+    clientId: row.clientId,
+    clientSecret: row.clientSecret,
+    name: row.name,
+    description: row.description ?? undefined,
+    redirectUris: row.redirectUris,
+    scopes: row.scopes,
+    userId: row.userId,
+    createdAt: toIsoString(row.createdAt),
+    updatedAt: toIsoString(row.updatedAt),
   };
 }
 
 export const applicationService = {
   // 创建应用
   async create(params: CreateApplicationParams): Promise<Application> {
-    const db = await getDatabase();
     const id = uuidv4();
     const clientId = generateClientId();
     const clientSecret = generateClientSecret();
 
-    await db.execute(
-      `
-      INSERT INTO applications (id, client_id, client_secret, name, description, redirect_uris, scopes, user_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `,
-      [
+    await prisma().application.create({
+      data: {
         id,
         clientId,
         clientSecret,
-        params.name,
-        params.description || null,
-        JSON.stringify(params.redirectUris),
-        JSON.stringify(params.scopes),
-        params.userId,
-      ]
-    );
+        name: params.name,
+        description: params.description ?? null,
+        redirectUris: JSON.stringify(params.redirectUris),
+        scopes: JSON.stringify(params.scopes),
+        userId: params.userId,
+      },
+    });
 
     return this.findById(id) as Promise<Application>;
   },
 
   // 根据ID查找应用
   async findById(id: string): Promise<Application | null> {
-    const db = await getDatabase();
-    const row = await db.queryOne<Record<string, unknown>>('SELECT * FROM applications WHERE id = ?', [id]);
-    return row ? rowToApplication(row) : null;
+    const row = await prisma().application.findUnique({ where: { id } });
+    return row ? modelToApplication(row) : null;
   },
 
   // 根据客户端ID查找应用
   async findByClientId(clientId: string): Promise<Application | null> {
-    const db = await getDatabase();
-    const row = await db.queryOne<Record<string, unknown>>('SELECT * FROM applications WHERE client_id = ?', [clientId]);
-    return row ? rowToApplication(row) : null;
+    const row = await prisma().application.findUnique({ where: { clientId } });
+    return row ? modelToApplication(row) : null;
   },
 
   // 验证客户端密钥
@@ -96,129 +101,106 @@ export const applicationService = {
 
   // 更新应用信息
   async update(id: string, params: UpdateApplicationParams): Promise<Application | null> {
-    const db = await getDatabase();
-    const updates: string[] = [];
-    const values: unknown[] = [];
+    const data: Record<string, unknown> = {};
+    if (params.name !== undefined) data.name = params.name;
+    if (params.description !== undefined) data.description = params.description;
+    if (params.redirectUris !== undefined) data.redirectUris = JSON.stringify(params.redirectUris);
+    if (params.scopes !== undefined) data.scopes = JSON.stringify(params.scopes);
 
-    if (params.name !== undefined) {
-      updates.push('name = ?');
-      values.push(params.name);
-    }
-    if (params.description !== undefined) {
-      updates.push('description = ?');
-      values.push(params.description);
-    }
-    if (params.redirectUris !== undefined) {
-      updates.push('redirect_uris = ?');
-      values.push(JSON.stringify(params.redirectUris));
-    }
-    if (params.scopes !== undefined) {
-      updates.push('scopes = ?');
-      values.push(JSON.stringify(params.scopes));
-    }
+    if (Object.keys(data).length === 0) return this.findById(id);
 
-    if (updates.length === 0) {
-      return this.findById(id);
+    try {
+      await prisma().application.update({ where: { id }, data });
+    } catch {
+      return null;
     }
-
-    updates.push("updated_at = datetime('now')");
-    values.push(id);
-
-    await db.execute(`UPDATE applications SET ${updates.join(', ')} WHERE id = ?`, values);
 
     return this.findById(id);
   },
 
   // 重新生成客户端密钥
   async regenerateSecret(id: string): Promise<string | null> {
-    const db = await getDatabase();
     const newSecret = generateClientSecret();
 
-    const changes = await db.execute(
-      `UPDATE applications SET client_secret = ?, updated_at = datetime('now') WHERE id = ?`,
-      [newSecret, id]
-    );
+    const res = await prisma().application.updateMany({
+      where: { id },
+      data: { clientSecret: newSecret },
+    });
 
-    return changes > 0 ? newSecret : null;
+    return res.count > 0 ? newSecret : null;
   },
 
   // 删除应用（同时清理相关的授权数据）
   async delete(id: string): Promise<boolean> {
-    const db = await getDatabase();
-    
-    // 先获取应用信息
-    const app = await this.findById(id);
-    if (!app) {
-      return false;
-    }
+    return prisma().$transaction(async (tx) => {
+      const app = await tx.application.findUnique({ where: { id } });
+      if (!app) return false;
 
-    // 删除相关的刷新令牌
-    await db.execute(`
-      DELETE FROM refresh_tokens WHERE access_token_id IN (
-        SELECT id FROM access_tokens WHERE client_id = ?
-      )
-    `, [app.clientId]);
+      await tx.refreshToken.deleteMany({
+        where: {
+          accessToken: {
+            clientId: app.clientId,
+          },
+        },
+      });
 
-    // 删除相关的访问令牌
-    await db.execute('DELETE FROM access_tokens WHERE client_id = ?', [app.clientId]);
+      await tx.accessToken.deleteMany({ where: { clientId: app.clientId } });
+      await tx.authorizationCode.deleteMany({ where: { clientId: app.clientId } });
+      await tx.userConsent.deleteMany({ where: { clientId: app.clientId } });
+      await tx.applicationPermission.deleteMany({ where: { applicationId: id } });
+      await tx.authLog.deleteMany({ where: { clientId: app.clientId } });
 
-    // 删除相关的授权码
-    await db.execute('DELETE FROM authorization_codes WHERE client_id = ?', [app.clientId]);
-
-    // 删除用户授权同意记录
-    await db.execute('DELETE FROM user_consents WHERE client_id = ?', [app.clientId]);
-
-    // 删除应用权限记录
-    await db.execute('DELETE FROM application_permissions WHERE application_id = ?', [id]);
-
-    // 删除授权日志
-    await db.execute('DELETE FROM auth_logs WHERE client_id = ?', [app.clientId]);
-
-    // 最后删除应用
-    const changes = await db.execute('DELETE FROM applications WHERE id = ?', [id]);
-    return changes > 0;
+      await tx.application.delete({ where: { id } });
+      return true;
+    });
   },
 
   // 获取用户的所有应用（包含有权限访问的应用）
   async findByUserId(userId: string): Promise<Application[]> {
-    const db = await getDatabase();
-    // 获取用户创建的应用和有权限访问的应用
-    const rows = (await db.query<Record<string, unknown>>(`
-      SELECT DISTINCT a.*, 
-        CASE WHEN a.user_id = ? THEN 'owner' ELSE ap.permission END as access_type,
-        u.username as owner_username
-      FROM applications a
-      LEFT JOIN application_permissions ap ON a.id = ap.application_id AND ap.user_id = ?
-      LEFT JOIN users u ON a.user_id = u.id
-      WHERE a.user_id = ? OR ap.user_id = ?
-      ORDER BY a.created_at DESC
-    `, [userId, userId, userId, userId])).rows;
-    return rows.map((row) => ({
-      ...rowToApplication(row),
-      accessType: row.access_type as string,
-      ownerUsername: row.owner_username as string,
-    }));
+    const rows = await prisma().application.findMany({
+      where: {
+        OR: [
+          { userId },
+          { permissions: { some: { userId } } },
+        ],
+      },
+      include: {
+        owner: { select: { username: true } },
+        permissions: {
+          where: { userId },
+          select: { permission: true },
+          take: 1,
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return rows.map((row) => {
+      const accessType = row.userId === userId ? 'owner' : (row.permissions[0]?.permission ?? 'view');
+      return {
+        ...modelToApplication(row),
+        accessType,
+        ownerUsername: row.owner.username,
+      };
+    });
   },
 
   // 获取所有应用（仅管理员）
   async findAll(page = 1, limit = 20): Promise<{ applications: Application[]; total: number }> {
-    const db = await getDatabase();
     const offset = (page - 1) * limit;
 
-    const countRow = await db.queryOne<{ count: unknown }>('SELECT COUNT(*) as count FROM applications');
-    const total = numberFromCount(countRow?.count ?? 0);
-
-    const rows = (await db.query<Record<string, unknown>>(`
-      SELECT a.*, u.username as owner_username
-      FROM applications a
-      LEFT JOIN users u ON a.user_id = u.id
-      ORDER BY a.created_at DESC LIMIT ? OFFSET ?
-    `, [limit, offset])).rows;
+    const total = await prisma().application.count();
+    const rows = await prisma().application.findMany({
+      include: { owner: { select: { username: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      skip: offset,
+    });
 
     return {
       applications: rows.map((row) => ({
-        ...rowToApplication(row),
-        ownerUsername: row.owner_username as string,
+        ...modelToApplication(row),
+        ownerUsername: row.owner.username,
       })),
       total,
     };
@@ -226,18 +208,25 @@ export const applicationService = {
 
   // 添加应用访问权限
   async addPermission(applicationId: string, userId: string, permission: 'view' | 'edit'): Promise<boolean> {
-    const db = await getDatabase();
     const id = uuidv4();
-
     try {
-      await db.execute(
-        `
-        INSERT INTO application_permissions (id, application_id, user_id, permission)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(application_id, user_id) DO UPDATE SET permission = ?
-      `,
-        [id, applicationId, userId, permission, permission]
-      );
+      await prisma().applicationPermission.upsert({
+        where: {
+          applicationId_userId: {
+            applicationId,
+            userId,
+          },
+        },
+        create: {
+          id,
+          applicationId,
+          userId,
+          permission,
+        },
+        update: {
+          permission,
+        },
+      });
       return true;
     } catch {
       return false;
@@ -246,46 +235,35 @@ export const applicationService = {
 
   // 移除应用访问权限
   async removePermission(applicationId: string, userId: string): Promise<boolean> {
-    const db = await getDatabase();
-    const changes = await db.execute('DELETE FROM application_permissions WHERE application_id = ? AND user_id = ?', [
-      applicationId,
-      userId,
-    ]);
-    return changes > 0;
+    const res = await prisma().applicationPermission.deleteMany({ where: { applicationId, userId } });
+    return res.count > 0;
   },
 
   // 获取应用的权限列表
   async getPermissions(applicationId: string): Promise<Array<{ userId: string; username: string; permission: string }>> {
-    const db = await getDatabase();
-    const rows = (await db.query<Record<string, unknown>>(`
-      SELECT ap.user_id, ap.permission, u.username
-      FROM application_permissions ap
-      JOIN users u ON ap.user_id = u.id
-      WHERE ap.application_id = ?
-    `, [applicationId])).rows;
+    const rows = await prisma().applicationPermission.findMany({
+      where: { applicationId },
+      include: { user: { select: { username: true } } },
+    });
+
     return rows.map((row) => ({
-      userId: row.user_id as string,
-      username: row.username as string,
-      permission: row.permission as string,
+      userId: row.userId,
+      username: row.user.username,
+      permission: row.permission,
     }));
   },
 
   // 检查用户对应用的权限
   async checkPermission(applicationId: string, userId: string): Promise<'owner' | 'edit' | 'view' | null> {
-    const db = await getDatabase();
-    
-    // 检查是否是所有者
-    const app = await db.queryOne<{ user_id: string }>('SELECT user_id FROM applications WHERE id = ?', [applicationId]);
-    
+    const app = await prisma().application.findUnique({ where: { id: applicationId }, select: { userId: true } });
     if (!app) return null;
-    if (app.user_id === userId) return 'owner';
+    if (app.userId === userId) return 'owner';
 
-    // 检查权限表
-    const perm = await db.queryOne<{ permission: string }>(
-      'SELECT permission FROM application_permissions WHERE application_id = ? AND user_id = ?',
-      [applicationId, userId]
-    );
-    
-    return perm?.permission as 'edit' | 'view' | null;
+    const perm = await prisma().applicationPermission.findUnique({
+      where: { applicationId_userId: { applicationId, userId } },
+      select: { permission: true },
+    });
+
+    return (perm?.permission as 'edit' | 'view' | undefined) ?? null;
   },
 };

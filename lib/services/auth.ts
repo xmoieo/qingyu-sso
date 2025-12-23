@@ -3,9 +3,10 @@
  */
 import { v4 as uuidv4 } from 'uuid';
 import jwt, { Secret, SignOptions } from 'jsonwebtoken';
-import { getDatabase, User, Session } from '../db';
+import { User, Session } from '../db';
 import { userService } from './user';
 import { toIsoString } from '../db/client';
+import { prisma } from '../prisma';
 
 const JWT_SECRET: Secret | undefined = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -27,13 +28,13 @@ export interface LoginResult {
 }
 
 // 数据库行到会话对象的转换
-function rowToSession(row: Record<string, unknown>): Session {
+function modelToSession(row: { id: string; userId: string; token: string; expiresAt: Date; createdAt: Date }): Session {
   return {
-    id: row.id as string,
-    userId: row.user_id as string,
-    token: row.token as string,
-    expiresAt: toIsoString(row.expires_at),
-    createdAt: toIsoString(row.created_at),
+    id: row.id,
+    userId: row.userId,
+    token: row.token,
+    expiresAt: toIsoString(row.expiresAt),
+    createdAt: toIsoString(row.createdAt),
   };
 }
 
@@ -84,43 +85,43 @@ export const authService = {
 
   // 创建会话
   async createSession(userId: string): Promise<Session> {
-    const db = await getDatabase();
     const id = uuidv4();
     const token = uuidv4();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    await db.execute(
-      `
-      INSERT INTO sessions (id, user_id, token, expires_at)
-      VALUES (?, ?, ?, ?)
-    `,
-      [id, userId, token, expiresAt]
-    );
+    const row = await prisma().session.create({
+      data: {
+        id,
+        userId,
+        token,
+        expiresAt,
+      },
+    });
 
-    return { id, userId, token, expiresAt, createdAt: new Date().toISOString() };
+    return modelToSession(row);
   },
 
   // 验证会话
   async validateSession(sessionId: string): Promise<Session | null> {
-    const db = await getDatabase();
-    const row = await db.queryOne<Record<string, unknown>>(
-      "SELECT * FROM sessions WHERE id = ? AND expires_at > datetime('now')",
-      [sessionId]
-    );
-    return row ? rowToSession(row) : null;
+    const row = await prisma().session.findFirst({
+      where: {
+        id: sessionId,
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    return row ? modelToSession(row) : null;
   },
 
   // 删除会话（登出）
   async deleteSession(sessionId: string): Promise<boolean> {
-    const db = await getDatabase();
-    const changes = await db.execute('DELETE FROM sessions WHERE id = ?', [sessionId]);
-    return changes > 0;
+    const res = await prisma().session.deleteMany({ where: { id: sessionId } });
+    return res.count > 0;
   },
 
   // 删除用户所有会话
   async deleteUserSessions(userId: string): Promise<void> {
-    const db = await getDatabase();
-    await db.execute('DELETE FROM sessions WHERE user_id = ?', [userId]);
+    await prisma().session.deleteMany({ where: { userId } });
   },
 
   // 生成JWT
@@ -140,8 +141,7 @@ export const authService = {
 
   // 清理过期会话
   async cleanExpiredSessions(): Promise<number> {
-    const db = await getDatabase();
-    const changes = await db.execute("DELETE FROM sessions WHERE expires_at <= datetime('now')");
-    return changes;
+    const res = await prisma().session.deleteMany({ where: { expiresAt: { lte: new Date() } } });
+    return res.count;
   },
 };

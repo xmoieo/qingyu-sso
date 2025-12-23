@@ -17,8 +17,8 @@
 
 - **框架**: Next.js 16
 - **UI**: Material UI (MUI)
-- **运行时**: Bun
-- **数据库**: SQLite3（可切换到MySQL/PostgreSQL）
+- **运行时**: Node.js / Bun
+- **数据库**: Prisma（SQLite/PostgreSQL/MySQL/MariaDB）
 - **认证**: JWT + Session
 
 ## 快速开始
@@ -31,16 +31,30 @@ bun install
 
 ### 2. 配置环境变量
 
-复制 `.env.example` 为 `.env` 并根据需要修改配置：
+至少需要配置数据库连接（Prisma 使用 `DATABASE_URL`）。默认使用 SQLite：
 
-```bash
-cp .env.example .env
+```env
+DATABASE_URL="file:./data/sso.db"
+JWT_SECRET="please-change-me"
 ```
+
+说明：当前仓库提供 3 份 Prisma schema 文件：
+
+- SQLite（默认）：`prisma/schema.prisma`
+- PostgreSQL：`prisma/schema.postgresql.prisma`
+- MySQL/MariaDB：`prisma/schema.mysql.prisma`
 
 ### 3. 启动开发服务器
 
 ```bash
 bun run dev
+```
+
+首次启动前需要初始化数据库表结构（以 SQLite 为例）：
+
+```bash
+npm run prisma:generate:sqlite
+npm run prisma:dbpush:sqlite
 ```
 
 打开 [http://localhost:3000](http://localhost:3000) 查看应用。
@@ -86,29 +100,27 @@ bun run dev
 
 ## 数据库配置
 
-在 `.env` 文件中配置数据库类型：
+在 `.env` 文件中配置 Prisma 连接字符串：
 
 ```env
-# SQLite（默认）
-DB_TYPE=sqlite
-SQLITE_PATH=./data/sso.db
-
-# MySQL/MariaDB
-# DB_TYPE=mysql
-# MYSQL_HOST=localhost
-# MYSQL_PORT=3306
-# MYSQL_USER=root
-# MYSQL_PASSWORD=
-# MYSQL_DATABASE=sso
-
-# PostgreSQL
-# DB_TYPE=postgresql
-# POSTGRES_HOST=localhost
-# POSTGRES_PORT=5432
-# POSTGRES_USER=postgres
-# POSTGRES_PASSWORD=
-# POSTGRES_DATABASE=sso
+DATABASE_URL="file:./data/sso.db"
 ```
+
+### 切换数据库（PostgreSQL / MySQL / MariaDB）
+
+Prisma Client 是根据 schema 生成的：切换数据库时，需要选择匹配的 schema 重新生成 client，并推送表结构。
+
+- **PostgreSQL**
+	- `DATABASE_URL="postgresql://user:password@localhost:5432/sso"`
+	- `npm run prisma:generate:postgresql`
+	- `npm run prisma:dbpush:postgresql`
+
+- **MySQL / MariaDB**（Prisma schema 的 provider 都是 `mysql`）
+	- `DATABASE_URL="mysql://user:password@localhost:3306/sso"`
+	- `npm run prisma:generate:mysql`
+	- `npm run prisma:dbpush:mysql`
+
+兼容说明：运行时如果未设置 `DATABASE_URL`，服务端会尝试读取 `DB_TYPE` 以及 `SQLITE_PATH` / `POSTGRES_*` / `MYSQL_*` 来拼接连接串；但 Prisma CLI（`prisma generate/db push`）仍建议显式设置 `DATABASE_URL`。
 
 ## 生产部署
 

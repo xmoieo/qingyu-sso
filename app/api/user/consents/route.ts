@@ -4,9 +4,9 @@
  * DELETE /api/user/consents - 撤销授权
  */
 import { NextRequest } from 'next/server';
-import { getDatabase } from '@/lib/db';
 import { getAuthContext, successResponse, errorResponse, unauthorizedResponse, serverErrorResponse } from '@/lib/utils';
 import { toIsoString } from '@/lib/db/client';
+import { prisma } from '@/lib/prisma';
 
 interface ConsentedApp {
   clientId: string;
@@ -25,25 +25,27 @@ export async function GET() {
       return unauthorizedResponse();
     }
 
-    const db = await getDatabase();
-    const rows = (await db.query<Record<string, unknown>>(`
-      SELECT uc.client_id, uc.scope, uc.created_at,
-             a.name as app_name, a.description as app_description,
-             u.username as owner_username
-      FROM user_consents uc
-      JOIN applications a ON uc.client_id = a.client_id
-      JOIN users u ON a.user_id = u.id
-      WHERE uc.user_id = ?
-      ORDER BY uc.created_at DESC
-    `, [auth.user.id])).rows;
+    const rows = await prisma().userConsent.findMany({
+      where: { userId: auth.user.id },
+      include: {
+        application: {
+          select: {
+            name: true,
+            description: true,
+            owner: { select: { username: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
     const consents: ConsentedApp[] = rows.map((row) => ({
-      clientId: row.client_id as string,
-      appName: row.app_name as string,
-      appDescription: row.app_description as string | null,
-      scope: row.scope as string,
-      createdAt: toIsoString(row.created_at),
-      ownerUsername: row.owner_username as string,
+      clientId: row.clientId,
+      appName: row.application.name,
+      appDescription: row.application.description,
+      scope: row.scope,
+      createdAt: toIsoString(row.createdAt),
+      ownerUsername: row.application.owner.username,
     }));
 
     return successResponse(consents);
@@ -68,26 +70,27 @@ export async function DELETE(request: NextRequest) {
       return errorResponse('缺少 clientId 参数');
     }
 
-    const db = await getDatabase();
+    const ok = await prisma().$transaction(async (tx) => {
+      const consent = await tx.userConsent.deleteMany({ where: { userId: auth.user.id, clientId } });
+      if (consent.count === 0) return false;
 
-    // 删除用户授权记录
-    const changes = await db.execute('DELETE FROM user_consents WHERE user_id = ? AND client_id = ?', [auth.user.id, clientId]);
+      const tokens = await tx.accessToken.findMany({
+        where: { userId: auth.user.id, clientId },
+        select: { id: true },
+      });
 
-    if (changes === 0) {
+      const ids = tokens.map((t) => t.id);
+      if (ids.length > 0) {
+        await tx.refreshToken.deleteMany({ where: { accessTokenId: { in: ids } } });
+      }
+
+      await tx.accessToken.deleteMany({ where: { userId: auth.user.id, clientId } });
+      return true;
+    });
+
+    if (!ok) {
       return errorResponse('授权记录不存在');
     }
-
-    // 同时删除相关的访问令牌和刷新令牌
-    const tokens = (await db.query<{ id: string }>('SELECT id FROM access_tokens WHERE user_id = ? AND client_id = ?', [
-      auth.user.id,
-      clientId,
-    ])).rows;
-
-    for (const token of tokens) {
-      await db.execute('DELETE FROM refresh_tokens WHERE access_token_id = ?', [token.id]);
-    }
-
-    await db.execute('DELETE FROM access_tokens WHERE user_id = ? AND client_id = ?', [auth.user.id, clientId]);
 
     return successResponse(null, '已撤销授权');
   } catch (error) {
