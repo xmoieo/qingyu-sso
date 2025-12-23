@@ -96,10 +96,19 @@ function ensureDatabaseUrl(): void {
 
 declare global {
   var __prisma: PrismaClient | undefined;
+  var __prismaDatabaseUrl: string | undefined;
 }
 
 export function prisma(): PrismaClient {
   ensureDatabaseUrl();
+
+  // Reuse a single PrismaClient per process to avoid exhausting DB connections.
+  // Creating a new PrismaClient for each request (or each call) will quickly hit
+  // PostgreSQL's connection limits in production.
+  const currentUrl = process.env.DATABASE_URL;
+  if (!currentUrl) {
+    throw new Error('DATABASE_URL is required but was not set after normalization.');
+  }
 
   const expected = getExpectedDbType();
 
@@ -128,12 +137,9 @@ export function prisma(): PrismaClient {
     }
   };
 
-  if (process.env.NODE_ENV === 'production') {
-    return createClient();
-  }
-
-  if (!globalThis.__prisma) {
+  if (!globalThis.__prisma || globalThis.__prismaDatabaseUrl !== currentUrl) {
     globalThis.__prisma = createClient();
+    globalThis.__prismaDatabaseUrl = currentUrl;
   }
 
   return globalThis.__prisma;
