@@ -101,12 +101,39 @@ declare global {
 export function prisma(): PrismaClient {
   ensureDatabaseUrl();
 
+  const expected = getExpectedDbType();
+
+  const createClient = (): PrismaClient => {
+    try {
+      return new PrismaClient();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+
+      // Common misconfiguration when the generated Prisma Client (schema provider) doesn't match runtime DB.
+      // Example: generated from SQLite schema (provider=sqlite) but DATABASE_URL is postgresql://...
+      if (message.includes('the URL must start with the protocol `file:`') && expected !== 'sqlite') {
+        throw new Error(
+          [
+            'Prisma schema/client 与运行时数据库不匹配。',
+            `当前 DB_TYPE=${expected}，但你生成的 Prisma Client 似乎来自 SQLite schema（因此要求 DATABASE_URL 以 file: 开头）。`,
+            '请在部署/容器构建阶段使用匹配的 schema 重新生成 Prisma Client：',
+            '  - PostgreSQL: npm run prisma:generate:postgresql && npm run prisma:dbpush:postgresql',
+            '  - MySQL/MariaDB: npm run prisma:generate:mysql && npm run prisma:dbpush:mysql',
+            '并确保运行时 DATABASE_URL/DB_TYPE 与所生成的 schema 一致。',
+          ].join('\n')
+        );
+      }
+
+      throw err;
+    }
+  };
+
   if (process.env.NODE_ENV === 'production') {
-    return new PrismaClient();
+    return createClient();
   }
 
   if (!globalThis.__prisma) {
-    globalThis.__prisma = new PrismaClient();
+    globalThis.__prisma = createClient();
   }
 
   return globalThis.__prisma;
